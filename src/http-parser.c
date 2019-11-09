@@ -13,15 +13,15 @@ extern "C" {
 #define NULL ((void*)0)
 #endif
 
-void http_header_free(struct http_header *header) {
-  if (header->next) http_header_free(header->next);
+void http_parser_header_free(struct http_parser_header *header) {
+  if (header->next) http_parser_header_free(header->next);
   if (header->key) free(header->key);
   if (header->value) free(header->value);
   free(header);
 }
 
-char *http_header_get(struct http_request *request, char *key) {
-  struct http_header *header = request->headers;
+char *http_parser_header_get(struct http_parser_request *request, char *key) {
+  struct http_parser_header *header = request->headers;
   while(header) {
     if (!strcasecmp(key, header->key)) {
       return header->value;
@@ -31,22 +31,22 @@ char *http_header_get(struct http_request *request, char *key) {
   return NULL;
 }
 
-void http_request_free(struct http_request *request) {
+void http_parser_request_free(struct http_parser_request *request) {
   if (request->body) free(request->body);
   if (request->method) free(request->method);
   if (request->path) free(request->path);
-  if (request->headers) http_header_free(request->headers);
+  if (request->headers) http_parser_header_free(request->headers);
   free(request);
 }
 
-struct http_request * http_request_init() {
-  struct http_request *request = calloc(1, sizeof(struct http_request));
+struct http_parser_request * http_parser_request_init() {
+  struct http_parser_request *request = calloc(1, sizeof(struct http_parser_request));
   return request;
 }
 
-void http_request_data(struct http_request *request, char *data, int size) {
-  struct http_header *header;
-  struct http_event *ev;
+void http_parser_request_data(struct http_parser_request *request, char *data, int size) {
+  struct http_parser_header *header;
+  struct http_parser_event *ev;
   char *index;
   int newsize;
   char *colon;
@@ -66,9 +66,9 @@ void http_request_data(struct http_request *request, char *data, int size) {
   int running = 1;
   while(running) {
     switch(request->state) {
-      case HTTP_STATE_PANIC:
+      case HTTP_PARSER_STATE_PANIC:
         return;
-      case HTTP_STATE_METHOD:
+      case HTTP_PARSER_STATE_METHOD:
 
         // Wait for more data if not line break found
         index = strstr(request->body, "\r\n");
@@ -79,7 +79,7 @@ void http_request_data(struct http_request *request, char *data, int size) {
         request->method = calloc(1, 7);
         request->path   = calloc(1, 512);
         if (sscanf(request->body, "%6s %511s", request->method, request->path) != 2) {
-          request->state = HTTP_STATE_PANIC;
+          request->state = HTTP_PARSER_STATE_PANIC;
           return;
         }
 
@@ -92,10 +92,10 @@ void http_request_data(struct http_request *request, char *data, int size) {
         request->bodysize = newsize;
 
         // Signal we're now reading headers
-        request->state = HTTP_STATE_HEADER;
+        request->state = HTTP_PARSER_STATE_HEADER;
         break;
 
-      case HTTP_STATE_HEADER:
+      case HTTP_PARSER_STATE_HEADER:
 
         // Wait for more data if not line break found
         index = strstr(request->body, "\r\n");
@@ -119,11 +119,11 @@ void http_request_data(struct http_request *request, char *data, int size) {
               (!strcmp(request->method, "GET")) ||
               (!strcmp(request->method, "DELETE"))
           ) {
-            request->state = HTTP_STATE_RESPONSE;
+            request->state = HTTP_PARSER_STATE_RESPONSE;
             break;
           }
 
-          request->state = HTTP_STATE_BODY;
+          request->state = HTTP_PARSER_STATE_BODY;
           break;
         }
 
@@ -154,10 +154,10 @@ void http_request_data(struct http_request *request, char *data, int size) {
 
         break;
 
-      case HTTP_STATE_BODY:
+      case HTTP_PARSER_STATE_BODY:
 
         // Fetch the content length
-        aContentLength = http_header_get(request, "content-length");
+        aContentLength = http_parser_header_get(request, "content-length");
         iContentLength = atoi(aContentLength);
 
         // Not enough data = skip
@@ -168,13 +168,13 @@ void http_request_data(struct http_request *request, char *data, int size) {
 
         // Change size to indicated size
         request->bodysize = iContentLength;
-        request->state = HTTP_STATE_RESPONSE;
+        request->state = HTTP_PARSER_STATE_RESPONSE;
         break;
 
-      case HTTP_STATE_RESPONSE:
+      case HTTP_PARSER_STATE_RESPONSE:
 
         if (request->onRequest) {
-          ev = calloc(1,sizeof(struct http_event));
+          ev = calloc(1,sizeof(struct http_parser_event));
           ev->request = request;
           request->onRequest(ev);
           request->onRequest = NULL;
