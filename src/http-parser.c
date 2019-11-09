@@ -78,9 +78,9 @@ void http_parser_request_data(struct http_parser_request *request, char *data, i
 
         // Read method and path
         request->method  = calloc(1, 7);
-        request->path    = calloc(1, 512);
+        request->path    = calloc(1, 8192);
         request->version = calloc(1, 4);
-        if (sscanf(request->body, "%6s %511s HTTP/%3s", request->method, request->path, request->version) != 3) {
+        if (sscanf(request->body, "%6s %8191s HTTP/%3s", request->method, request->path, request->version) != 3) {
           request->state = HTTP_PARSER_STATE_PANIC;
           return;
         }
@@ -92,6 +92,14 @@ void http_parser_request_data(struct http_parser_request *request, char *data, i
         free(request->body);
         request->body = buf;
         request->bodysize = newsize;
+
+        // Detect query
+        // No need to malloc, already done by sscanf
+        index = strstr(request->path, "?");
+        if (index) {
+          *(index) = '\0';
+          request->query = index + 1;
+        }
 
         // Signal we're now reading headers
         request->state = HTTP_PARSER_STATE_HEADER;
