@@ -26,6 +26,7 @@ struct http_parser_request {
   int state;
   char *method;
   char *path;
+  char *version;
   struct http_parser_header *headers;
   char *body;
   void (*onRequest)(struct http_parser_event*);

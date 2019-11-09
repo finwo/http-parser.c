@@ -32,9 +32,10 @@ char *http_parser_header_get(struct http_parser_request *request, char *key) {
 }
 
 void http_parser_request_free(struct http_parser_request *request) {
-  if (request->body) free(request->body);
   if (request->method) free(request->method);
   if (request->path) free(request->path);
+  if (request->version) free(request->version);
+  if (request->body) free(request->body);
   if (request->headers) http_parser_header_free(request->headers);
   free(request);
 }
@@ -76,9 +77,10 @@ void http_parser_request_data(struct http_parser_request *request, char *data, i
         *(index) = '\0';
 
         // Read method and path
-        request->method = calloc(1, 7);
-        request->path   = calloc(1, 512);
-        if (sscanf(request->body, "%6s %511s", request->method, request->path) != 2) {
+        request->method  = calloc(1, 7);
+        request->path    = calloc(1, 512);
+        request->version = calloc(1, 4);
+        if (sscanf(request->body, "%6s %511s HTTP/%3s", request->method, request->path, request->version) != 3) {
           request->state = HTTP_PARSER_STATE_PANIC;
           return;
         }
