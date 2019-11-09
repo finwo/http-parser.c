@@ -17,7 +17,7 @@ struct http_parser_header {
   char *value;
 };
 
-struct http_praser_event {
+struct http_parser_event {
   struct http_parser_request *request;
 };
 

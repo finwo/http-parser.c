@@ -7,7 +7,7 @@ extern "C" {
 #include <string.h>
 #include <strings.h>
 
-#include "http.h"
+#include "http-parser.h"
 
 #ifndef NULL
 #define NULL ((void*)0)
