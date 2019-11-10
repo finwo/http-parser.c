@@ -21,6 +21,7 @@ struct http_parser_header {
 struct http_parser_event {
   struct http_parser_message *request;
   struct http_parser_message *response;
+  struct http_parser_pair *pair;
   void *udata;
 };
 

@@ -215,16 +215,15 @@ static int http_parser_message_read_header(struct http_parser_message *message) 
 void http_parser_pair_request_data(struct http_parser_pair *pair, char *data, int size) {
   struct http_parser_event *ev;
   http_parser_request_data(pair->request, data, size);
-  if (pair->request->_state == HTTP_PARSER_STATE_DONE) {
-    if (pair->onRequest) {
-      ev           = calloc(1,sizeof(struct http_parser_event));
-      ev->request  = pair->request;
-      ev->response = pair->response;
-      ev->udata    = pair->udata;
-      pair->onRequest(ev);
-      free(ev);
-      pair->onRequest = NULL;
-    }
+  if (pair->request->ready && pair->onRequest) {
+    ev           = calloc(1,sizeof(struct http_parser_event));
+    ev->request  = pair->request;
+    ev->response = pair->response;
+    ev->pair     = pair;
+    ev->udata    = pair->udata;
+    pair->onRequest(ev);
+    free(ev);
+    pair->onRequest = NULL;
   }
 }
 

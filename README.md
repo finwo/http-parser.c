@@ -12,7 +12,7 @@ static void onRequest(struct http_parser_event *ev) {
 
   // Fetching the request
   // Has been wrapped in http_parser_event to support more features in the future
-  struct http_parser_request *request = ev->request;
+  struct http_parser_message *request = ev->request;
 
   // Basic http request data
   printf("Method: %s\n", request->method);
@@ -20,18 +20,21 @@ static void onRequest(struct http_parser_event *ev) {
   // Reading headers are case-insensitive due to non-compliant clients/servers
   printf("Host:   %s\n", http_parser_header_get(request, "host"));
 
-  // Once you're done with the request, you'll have to free it
-  http_parser_request_free(request);
+  // Once you're done with the request, you'll have to free it yourself
+  http_parser_message_free(request);
+
+  // Or you can free the whole pair
+  http_parser_pair_free(ev->pair);
 }
 
-// Initialize a request
-struct http_parser_request *request = http_parser_init();
+// Initialize a request/response pair
+struct http_parser_pair *reqres = http_parser_pair_init();
 
-// Assign userdata into the request
-// Use it to track whatever you need
-request->udata = (void*)...;
+// Userdata to be included can be assigned
+reqres->udata = (void*)...;
 
-// Attach a function
+// Trigger function 'onRequest' when the request is ready
+reqres->onRequest = onRequest;
 
 // Stored http message
 char *message =
@@ -41,5 +44,5 @@ char *message =
 ;
 
 // Passing network data into it
-http_parser_request_data(request, message, strlen(message));
+http_parser_pair_request_data(reqseq, message, strlen(message));
 ```
