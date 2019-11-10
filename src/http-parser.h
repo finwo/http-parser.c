@@ -5,10 +5,11 @@
 extern "C" {
 #endif
 
-#define HTTP_PARSER_STATE_METHOD   0
-#define HTTP_PARSER_STATE_HEADER   1
-#define HTTP_PARSER_STATE_BODY     2
-#define HTTP_PARSER_STATE_RESPONSE 3
+#define HTTP_PARSER_STATE_METHOD       0
+#define HTTP_PARSER_STATE_HEADER       1
+#define HTTP_PARSER_STATE_BODY         2
+#define HTTP_PARSER_STATE_BODY_CHUNKED 3
+#define HTTP_PARSER_STATE_RESPONSE     4
 #define HTTP_PARSER_STATE_PANIC    666
 
 struct http_parser_header {
@@ -31,6 +32,9 @@ struct http_parser_message {
   char *version;
   struct http_parser_header *headers;
   char *body;
+  char *buf;
+  int bufsize;
+  int chunksize;
   int bodysize;
   int _state;
 };

@@ -15,6 +15,37 @@ extern "C" {
 #endif
 
 /**
+ * Convert hexidecimal string to int
+ */
+int xtoi(char *str) {
+  char *p = str;
+  int i = 0;
+  int sign = 1;
+  while(*p) {
+    if ( *p == '-' ) sign = -1;
+
+    if ( *p >= '0' && *p <= '9' ) {
+      i *= 16;
+      i += (*p) - '0';
+    }
+
+    if ( *p >= 'a' && *p <= 'f' ) {
+      i *= 16;
+      i += 10 + (*p) - 'a';
+    }
+
+    if ( *p >= 'A' && *p <= 'F' ) {
+      i *= 16;
+      i += 10 + (*p) - 'A';
+    }
+
+    p = p+1;
+  }
+
+  return sign * i;
+}
+
+/**
  * Frees everything in a header that was malloc'd by http-parser
  */
 void http_parser_header_free(struct http_parser_header *header) {
@@ -30,9 +61,14 @@ void http_parser_header_free(struct http_parser_header *header) {
  */
 char *http_parser_header_get(struct http_parser_message *subject, char *key) {
   struct http_parser_header *header = subject->headers;
+  char *value;
   while(header) {
     if (!strcasecmp(key, header->key)) {
-      return header->value;
+      value = header->value;
+      while(*(value) == ' ') {
+        value++;
+      }
+      return value;
     }
     header = header->next;
   }
@@ -59,6 +95,7 @@ void http_parser_message_free(struct http_parser_message *subject) {
   if (subject->version) free(subject->version);
   if (subject->body) free(subject->body);
   if (subject->headers) http_parser_header_free(subject->headers);
+  if (subject->buf) free(subject->buf);
   free(subject);
 }
 
@@ -76,6 +113,7 @@ void http_parser_pair_free(struct http_parser_pair *pair) {
  */
 struct http_parser_message * http_parser_request_init() {
   struct http_parser_message *message = calloc(1, sizeof(struct http_parser_message));
+  message->chunksize = -1;
   return message;
 }
 
@@ -99,17 +137,25 @@ struct http_parser_pair * http_parser_pair_init(void *udata) {
   return pair;
 }
 
+
+/**
+ * Removed N byte from the beginning of the message body
+ */
+static void http_parser_message_remove_body_bytes(struct http_parser_message *message, int bytes) {
+  int size = message->bodysize - bytes;
+  char *buf = calloc(1, size + 1);
+  memcpy(buf, message->body + bytes, size);
+  free(message->body);
+  message->body = buf;
+  message->bodysize = size;
+}
+
 /**
  * Removes the first string from a http_message's body
  */
 static void http_parser_message_remove_body_string(struct http_parser_message *message) {
   int length = strlen(message->body);
-  int size   = message->bodysize - 2 - length;
-  char *buf  = calloc(1,size+1);
-  memcpy(buf, message->body + length + 2, size);
-  free(message->body);
-  message->body = buf;
-  message->bodysize = size;
+  http_parser_message_remove_body_bytes(message, length + 2);
 }
 
 /**
@@ -140,7 +186,6 @@ static int http_parser_message_read_header(struct http_parser_message *message) 
   // Detect colon
   index = strstr(message->body, ":");
   if (!index) {
-    printf("NO COLON: %s\n", message->body);
     http_parser_header_free(header);
     http_parser_message_remove_body_string(message);
     return 1;
@@ -189,8 +234,10 @@ void http_parser_pair_request_data(struct http_parser_pair *pair, char *data, in
 void http_parser_request_data(struct http_parser_message *request, char *data, int size) {
   char *index;
   char *colon;
+  char *buf;
   char *aContentLength;
   int iContentLength;
+  char *aChunkSize;
 
   // Add event data to buffer
   if (!request->body) request->body = malloc(1);
@@ -238,7 +285,10 @@ void http_parser_request_data(struct http_parser_message *request, char *data, i
 
       case HTTP_PARSER_STATE_HEADER:
         if (!http_parser_message_read_header(request)) {
-          if (http_parser_header_get(request, "content-length")) {
+          if (
+              http_parser_header_get(request, "content-length") ||
+              http_parser_header_get(request, "transfer-encoding")
+          ) {
             request->_state = HTTP_PARSER_STATE_BODY;
           } else {
             request->_state = HTTP_PARSER_STATE_RESPONSE;
@@ -248,8 +298,24 @@ void http_parser_request_data(struct http_parser_message *request, char *data, i
 
       case HTTP_PARSER_STATE_BODY:
 
+        // Detect chunked encoding
+        if (request->chunksize == -1) {
+          aChunkSize = http_parser_header_get(request, "transfer-encoding");
+          if (aChunkSize) {
+            if (!strcmp(aChunkSize, "chunked")) {
+              request->_state = HTTP_PARSER_STATE_BODY_CHUNKED;
+              break;
+            }
+          }
+
+        }
+
         // Fetch the content length
         aContentLength = http_parser_header_get(request, "content-length");
+        if (!aContentLength) {
+          request->_state = HTTP_PARSER_STATE_RESPONSE;
+          return;
+        }
         iContentLength = atoi(aContentLength);
 
         // Not enough data = skip
@@ -260,6 +326,67 @@ void http_parser_request_data(struct http_parser_message *request, char *data, i
         // Change size to indicated size
         request->bodysize = iContentLength;
         request->_state = HTTP_PARSER_STATE_RESPONSE;
+        break;
+
+      case HTTP_PARSER_STATE_BODY_CHUNKED:
+
+        // Detect chunk size if none present
+        if (request->chunksize == -1) {
+
+          // Check if we have a line
+          index = strstr(request->body, "\r\n");
+          if (!index) {
+            return;
+          }
+          *(index) = '\0';
+
+          // Empty line = skip
+          if (!strlen(request->body)) {
+            http_parser_message_remove_body_string(request);
+            break;
+          }
+
+          // Read hex chunksize
+          aChunkSize = calloc(1, 17);
+          sscanf(request->body, "%16s", aChunkSize);
+          request->chunksize = xtoi(aChunkSize);
+          free(aChunkSize);
+
+          // Remove chunksize line
+          http_parser_message_remove_body_string(request);
+
+          // 0 = EOF
+          if (request->chunksize == 0) {
+            request->_state = HTTP_PARSER_STATE_RESPONSE;
+            free(request->body);
+            request->body = request->buf;
+            request->buf = NULL;
+            return;
+          }
+
+        }
+
+        // Create buffer if not present yet
+        if (!request->buf) {
+          request->buf = calloc(1,1);
+          request->bufsize = 0;
+        }
+
+        // Ensure if the body has enough data
+        if (request->bodysize < request->chunksize) {
+          return;
+        }
+
+        // Copy data into buffer
+        request->buf = realloc(request->buf, request->bufsize + request->chunksize + 1);
+        memcpy(request->buf + request->bufsize, request->body, request->chunksize );
+        request->bufsize += request->chunksize;
+        *(request->buf + request->bufsize) = '\0';
+
+        // Remove chunk from receiving data and reset chunking
+        http_parser_message_remove_body_bytes(request, request->chunksize);
+        request->chunksize = -1;
+
         break;
 
       case HTTP_PARSER_STATE_RESPONSE:

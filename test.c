@@ -56,6 +56,17 @@ char *postMessage =
   "\r\n"
   "Hello World\r\n"
 ;
+char *postChunkedMessage =
+  "POST /foobar HTTP/1.1\r\n"
+  "Host: localhost\r\n"
+  "Transfer-Encoding: chunked\r\n"
+  "\r\n"
+  "2\r\n"
+  "He\r\n"
+  "B\r\n"
+  "llo World\r\n"
+  "0\r\n"
+;
 char *responseMessage =
   "HTTP/1.0 200 OK\r\n"
   "Content-Length: 11\r\n"
@@ -76,10 +87,11 @@ int main() {
   printf("# Pre-loaded request\n");
   ASSERT("request->method is null", request->method == NULL);
   ASSERT("request->body is null", request->body == NULL);
+  ASSERT("request->chunksize is -1", request->chunksize == -1);
 
   http_parser_request_data(request, getMessage, strlen(getMessage));
 
-  printf("# Loaded GET request\n");
+  printf("# GET request\n");
   ASSERT("request->version is 1.1", strcmp(request->version, "1.1") == 0);
   ASSERT("request->method is GET", strcmp(request->method, "GET") == 0);
   ASSERT("request->path is /foobar", strcmp(request->path, "/foobar") == 0);
@@ -88,7 +100,17 @@ int main() {
   request  = http_parser_request_init();
   http_parser_request_data(request, postMessage, strlen(postMessage));
 
-  printf("# Loaded POST request\n");
+  printf("# POST request\n");
+  ASSERT("request->version is 1.1", strcmp(request->version, "1.1") == 0);
+  ASSERT("request->method is POST", strcmp(request->method, "POST") == 0);
+  ASSERT("request->path is /foobar", strcmp(request->path, "/foobar") == 0);
+  ASSERT("request->body is \"Helo World\\r\\n\"", strcmp(request->body, "Hello World\r\n") == 0);
+
+  http_parser_message_free(request);
+  request  = http_parser_request_init();
+  http_parser_request_data(request, postChunkedMessage, strlen(postChunkedMessage));
+
+  printf("# POST request (chunked)\n");
   ASSERT("request->version is 1.1", strcmp(request->version, "1.1") == 0);
   ASSERT("request->method is POST", strcmp(request->method, "POST") == 0);
   ASSERT("request->path is /foobar", strcmp(request->path, "/foobar") == 0);
