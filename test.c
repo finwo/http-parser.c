@@ -59,7 +59,7 @@ char *postMessage =
 ;
 
 char *postChunkedMessage =
-  "POST /foobar HTTP/1.1\r\n"
+  "POST /foobar?token=pizza HTTP/1.1\r\n"
   "Host: localhost\r\n"
   "Transfer-Encoding: chunked\r\n"
   "\r\n"
@@ -117,6 +117,7 @@ int main() {
   ASSERT("request->version is 1.1", strcmp(request->version, "1.1") == 0);
   ASSERT("request->method is GET", strcmp(request->method, "GET") == 0);
   ASSERT("request->path is /foobar", strcmp(request->path, "/foobar") == 0);
+  ASSERT("request->toString matches", strcmp(getMessage, http_parser_print_request(request)));
 
   http_parser_message_free(request);
   request  = http_parser_request_init();
@@ -127,6 +128,7 @@ int main() {
   ASSERT("request->method is POST", strcmp(request->method, "POST") == 0);
   ASSERT("request->path is /foobar", strcmp(request->path, "/foobar") == 0);
   ASSERT("request->body is \"Helo World\\r\\n\"", strcmp(request->body, "Hello World\r\n") == 0);
+  ASSERT("request->toString matches", strcmp(postMessage, http_parser_print_request(request)));
 
   http_parser_message_free(request);
   request  = http_parser_request_init();
@@ -149,6 +151,7 @@ int main() {
   ASSERT("response->status = 200", response->status == 200);
   ASSERT("response->statusmessage = \"OK\"", strcmp(response->statusMessage, "OK") == 0);
   ASSERT("response->body = \"Hello World\\r\\n\"", strcmp(response->body, "Hello World\r\n") == 0);
+  ASSERT("response->toString matches", strcmp(responseMessage, http_parser_print_response(response)));
 
   http_parser_message_free(response);
   response = http_parser_response_init();
@@ -167,6 +170,7 @@ int main() {
   ASSERT("response->status = 404", response->status == 404);
   ASSERT("response->statusmessage = \"Not Found\"", strcmp(response->statusMessage, "Not Found") == 0);
   ASSERT("response->body = \"Not Found\\r\\n\"", strcmp(response->body, "Not Found\r\n") == 0);
+  ASSERT("response->toString matches", strcmp(responseNotFoundMessage, http_parser_print_response(response)));
 
   return err;
 }

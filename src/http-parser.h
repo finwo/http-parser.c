@@ -39,6 +39,7 @@ struct http_parser_message {
   int bufsize;
   int chunksize;
   int bodysize;
+  int chunktotal;
   int _state;
 };
 
@@ -67,6 +68,11 @@ void http_parser_pair_response_data(struct http_parser_pair *pair, char *data, i
 
 void http_parser_pair_free(struct http_parser_pair *pair);
 void http_parser_message_free(struct http_parser_message *subject);
+
+char * http_parser_print_pair_response(struct http_parser_pair *pair);
+char * http_parser_print_pair_request(struct http_parser_pair *pair);
+char * http_parser_print_response(struct http_parser_message *response);
+char * http_parser_print_request(struct http_parser_message *request);
 
 #ifdef __cplusplus
 } // extern "C"

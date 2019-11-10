@@ -123,6 +123,8 @@ struct http_parser_message * http_parser_request_init() {
 struct http_parser_message * http_parser_response_init() {
   struct http_parser_message *message = http_parser_request_init();
   message->status = 200;
+  message->version = calloc(1,4);
+  strcpy(message->version, "1.1");
   return message;
 }
 
@@ -236,6 +238,9 @@ static int http_parser_message_read_chunked(struct http_parser_message *message)
     message->chunksize = xtoi(aChunkSize);
     free(aChunkSize);
 
+    // Add it to the total
+    message->chunktotal += message->chunksize;
+
     // Remove chunksize line
     http_parser_message_remove_body_string(message);
 
@@ -271,6 +276,141 @@ static int http_parser_message_read_chunked(struct http_parser_message *message)
 
   // No error or end encountered
   return 2;
+}
+
+char * http_parser_print_pair_response(struct http_parser_pair *pair) {
+  return http_parser_print_response(pair->response);
+}
+
+char * http_parser_print_pair_quest(struct http_parser_pair *pair) {
+  return http_parser_print_response(pair->response);
+}
+
+char * http_parser_print_response(struct http_parser_message *response) {
+  char *result = calloc(1,256);
+  struct http_parser_header *header;
+  int index, length;
+
+  // Status
+  sprintf(result,
+      "HTTP/%s %d %s\r\n"
+      , response->version
+      , response->status
+      , response->statusMessage
+  );
+
+  // Headers
+  header = response->headers;
+  while(header) {
+    index = strlen(result);
+    length = index +
+      strlen(header->key) +
+      2 +
+      strlen(header->value) +
+      3 +
+      3;
+
+    // Asign memory
+    result = realloc(result,length);
+    *(result + length) = '\0';
+
+    // Write header
+    sprintf(result + index,
+      "%s: %s\r\n",
+      header->key,
+      header->value
+    );
+
+    // Next header
+    header = header->next;
+  }
+
+  strcpy( result + strlen(result), "\r\n" );
+
+  // Write body
+  index = strlen(result);
+  length = index + response->bodysize;
+  result = realloc(result, length + 1);
+  *(result + length) = '\0';
+  memcpy( result + index + 2, response->body, response->bodysize );
+
+  return result;;
+}
+
+char * http_parser_print_request(struct http_parser_message *request) {
+  char *result = calloc(1,8192);
+  struct http_parser_header *header;
+  int index, length;
+
+  // Status
+  sprintf(result,
+      "%s %s"
+      , request->method
+      , request->path
+  );
+
+  // Query
+  if (request->query) {
+    *(result + strlen(result)) = '?';
+    strcpy( result + strlen(result), request->query );
+  }
+
+  // HTTP version
+  strcpy( result + strlen(result), " HTTP/" );
+  strcpy( result + strlen(result), request->version );
+  strcpy( result + strlen(result), "\r\n" );
+
+  // Headers
+  header = request->headers;
+  while(header) {
+    index = strlen(result);
+    length = index +
+      strlen(header->key) +
+      2 +
+      strlen(header->value) +
+      3;
+
+    // Asign memory
+    result = realloc(result,length);
+    *(result + length) = '\0';
+
+    // Write header
+    sprintf(result + index,
+      "%s: %s\r\n",
+      header->key,
+      header->value
+    );
+
+    // Next header
+    header = header->next;
+  }
+
+  strcpy( result + strlen(result), "\r\n" );
+
+  // Handle chunked header
+  if (http_parser_header_get(request, "transfer-encoding")) {
+    result = realloc(result, strlen(result) + 20);
+    sprintf(result+strlen(result), "%x\r\n", request->bodysize);
+  }
+
+  // Write body
+  index = strlen(result);
+  length = index + request->bodysize;
+  result = realloc(result, length + 1);
+  *(result + length) = '\0';
+  memcpy( result + index, request->body, request->bodysize );
+
+  if (http_parser_header_get(request, "transfer-encoding")) {
+    result = realloc(result, length + 6);
+    *(result+length+0) = '0';
+    *(result+length+1) = '\r';
+    *(result+length+2) = '\n';
+    *(result+length+3) = '\r';
+    *(result+length+4) = '\n';
+    *(result+length+5) = '\0';
+  }
+
+  return result;;
 }
 
 /**
@@ -387,6 +527,7 @@ void http_parser_request_data(struct http_parser_message *request, char *data, i
           aChunkSize = http_parser_header_get(request, "transfer-encoding");
           if (aChunkSize) {
             if (!strcmp(aChunkSize, "chunked")) {
+              request->chunktotal = 0;
               request->_state = HTTP_PARSER_STATE_BODY_CHUNKED;
               break;
             }
@@ -433,6 +574,7 @@ void http_parser_request_data(struct http_parser_message *request, char *data, i
           free(request->body);
           request->body = request->buf;
           request->buf  = NULL;
+          request->bodysize = request->chunktotal;
         }
 
         // Mark the request as ready
@@ -513,6 +655,7 @@ void http_parser_response_data(struct http_parser_message *response, char *data,
           aChunkSize = http_parser_header_get(response, "transfer-encoding");
           if (aChunkSize) {
             if (!strcmp(aChunkSize, "chunked")) {
+              response->chunktotal = 0;
               response->_state = HTTP_PARSER_STATE_BODY_CHUNKED;
               break;
             }
@@ -559,6 +702,7 @@ void http_parser_response_data(struct http_parser_message *response, char *data,
           free(response->body);
           response->body = response->buf;
           response->buf  = NULL;
+          response->bodysize = response->chunktotal;
         }
 
         // Mark the request as ready
