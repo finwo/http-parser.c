@@ -124,16 +124,13 @@ void http_parser_request_data(struct http_parser_request *request, char *data, i
           request->body = buf;
           request->bodysize = newsize;
 
-          // GET/DELETE = start responding
-          if (
-              (!strcmp(request->method, "GET")) ||
-              (!strcmp(request->method, "DELETE"))
-          ) {
+          // No content-length = respond
+          if (http_parser_header_get(request, "content-length")) {
+            request->state = HTTP_PARSER_STATE_BODY;
+          } else {
             request->state = HTTP_PARSER_STATE_RESPONSE;
-            break;
           }
 
-          request->state = HTTP_PARSER_STATE_BODY;
           break;
         }
 
