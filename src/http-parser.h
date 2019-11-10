@@ -5,12 +5,12 @@
 extern "C" {
 #endif
 
-#define HTTP_PARSER_STATE_METHOD       0
+#define HTTP_PARSER_STATE_INIT         0
 #define HTTP_PARSER_STATE_HEADER       1
 #define HTTP_PARSER_STATE_BODY         2
 #define HTTP_PARSER_STATE_BODY_CHUNKED 3
 #define HTTP_PARSER_STATE_DONE         4
-#define HTTP_PARSER_STATE_PANIC    666
+#define HTTP_PARSER_STATE_PANIC        666
 
 struct http_parser_header {
   void *next;
@@ -28,6 +28,7 @@ struct http_parser_event {
 struct http_parser_message {
   int ready;
   int status;
+  char *statusMessage;
   char *method;
   char *path;
   char *query;
@@ -59,8 +60,7 @@ struct http_parser_message * http_parser_request_init();
 struct http_parser_message * http_parser_response_init();
 
 void http_parser_request_data(struct http_parser_message *request, char *data, int size);
-
-void http_parser_response_data(struct http_parser_message *request, char *data, int size);
+void http_parser_response_data(struct http_parser_message *response, char *data, int size);
 
 void http_parser_pair_request_data(struct http_parser_pair *pair, char *data, int size);
 void http_parser_pair_response_data(struct http_parser_pair *pair, char *data, int size);

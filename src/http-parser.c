@@ -294,12 +294,30 @@ void http_parser_pair_request_data(struct http_parser_pair *pair, char *data, in
 }
 
 /**
+ * Pass data into the pair's request
+ *
+ * Triggers onRequest if set
+ */
+void http_parser_pair_response_data(struct http_parser_pair *pair, char *data, int size) {
+  struct http_parser_event *ev;
+  http_parser_response_data(pair->request, data, size);
+  if (pair->request->ready && pair->onResponse) {
+    ev           = calloc(1,sizeof(struct http_parser_event));
+    ev->request  = pair->request;
+    ev->response = pair->response;
+    ev->pair     = pair;
+    ev->udata    = pair->udata;
+    pair->onResponse(ev);
+    free(ev);
+    pair->onResponse = NULL;
+  }
+}
+
+/**
  * Insert data into a http_message, acting as if it's a request
  */
 void http_parser_request_data(struct http_parser_message *request, char *data, int size) {
   char *index;
-  char *colon;
-  char *buf;
   char *aContentLength;
   int iContentLength;
   char *aChunkSize;
@@ -318,7 +336,7 @@ void http_parser_request_data(struct http_parser_message *request, char *data, i
     switch(request->_state) {
       case HTTP_PARSER_STATE_PANIC:
         return;
-      case HTTP_PARSER_STATE_METHOD:
+      case HTTP_PARSER_STATE_INIT:
 
         // Wait for more data if not line break found
         index = strstr(request->body, "\r\n");
@@ -373,7 +391,6 @@ void http_parser_request_data(struct http_parser_message *request, char *data, i
               break;
             }
           }
-
         }
 
         // Fetch the content length
@@ -425,7 +442,131 @@ void http_parser_request_data(struct http_parser_message *request, char *data, i
   }
 }
 
-// TODO: http_parser_response_data
+/**
+ * Insert data into a http_message, acting as if it's a request
+ */
+void http_parser_response_data(struct http_parser_message *response, char *data, int size) {
+  char *index;
+  char *aStatus;
+  int iContentLength;
+  char *aContentLength;
+  char *aChunkSize;
+  int res;
+
+  // Add event data to buffer
+  if (!response->body) response->body = malloc(1);
+  response->body = realloc(response->body, response->bodysize + size + 1);
+  memcpy(response->body + response->bodysize, data, size);
+  response->bodysize += size;
+
+  // Make string functions not segfault
+  *(response->body + response->bodysize) = '\0';
+
+  while(1) {
+    switch(response->_state) {
+      case HTTP_PARSER_STATE_PANIC:
+        return;
+      case HTTP_PARSER_STATE_INIT:
+
+        // Wait for more data if not line break found
+        index = strstr(response->body, "\r\n");
+        if (!index) return;
+        *(index) = '\0';
+
+        // Read version and status
+        response->version       = calloc(1, 4);
+        response->statusMessage = calloc(1, 8192);
+        aStatus                 = calloc(1, 4);
+        if (sscanf(response->body, "HTTP/%3s %3s %8191c", response->version, aStatus, response->statusMessage) != 3) {
+          response->_state = HTTP_PARSER_STATE_PANIC;
+          return;
+        }
+
+        // Turn the text status into a number
+        response->status = atoi(aStatus);
+        free(aStatus);
+
+        // Remove status line
+        http_parser_message_remove_body_string(response);
+
+        // Signal we're now reading headers
+        response->_state = HTTP_PARSER_STATE_HEADER;
+        break;
+
+      case HTTP_PARSER_STATE_HEADER:
+        if (!http_parser_message_read_header(response)) {
+          if (
+              http_parser_header_get(response, "content-length") ||
+              http_parser_header_get(response, "transfer-encoding")
+          ) {
+            response->_state = HTTP_PARSER_STATE_BODY;
+          } else {
+            response->_state = HTTP_PARSER_STATE_DONE;
+          }
+        }
+        break;
+
+      case HTTP_PARSER_STATE_BODY:
+
+        // Detect chunked encoding
+        if (response->chunksize == -1) {
+          aChunkSize = http_parser_header_get(response, "transfer-encoding");
+          if (aChunkSize) {
+            if (!strcmp(aChunkSize, "chunked")) {
+              response->_state = HTTP_PARSER_STATE_BODY_CHUNKED;
+              break;
+            }
+          }
+        }
+
+        // Fetch the content length
+        aContentLength = http_parser_header_get(response, "content-length");
+        if (!aContentLength) {
+          response->_state = HTTP_PARSER_STATE_DONE;
+          break;
+        }
+        iContentLength = atoi(aContentLength);
+
+        // Not enough data = skip
+        if (response->bodysize < iContentLength) {
+          return;
+        }
+
+        // Change size to indicated size
+        response->bodysize = iContentLength;
+        response->_state = HTTP_PARSER_STATE_DONE;
+        break;
+
+      case HTTP_PARSER_STATE_BODY_CHUNKED:
+        res = http_parser_message_read_chunked(response);
+
+        if (res == 0) {
+          // Done
+          response->_state = HTTP_PARSER_STATE_DONE;
+        } else if (res == 1) {
+          // More data needed
+          return;
+        } else if (res == 2) {
+          // Still reading
+        }
+
+        break;
+
+      case HTTP_PARSER_STATE_DONE:
+
+        // Temporary buffer > direct buffer
+        if (response->buf) {
+          free(response->body);
+          response->body = response->buf;
+          response->buf  = NULL;
+        }
+
+        // Mark the request as ready
+        response->ready = 1;
+        return;
+    }
+  }
+}
 
 #ifdef __cplusplus
 } // extern "C"

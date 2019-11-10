@@ -49,6 +49,7 @@ char *getMessage =
   "Host: localhost\r\n"
   "\r\n"
 ;
+
 char *postMessage =
   "POST /foobar HTTP/1.1\r\n"
   "Host: localhost\r\n"
@@ -56,6 +57,7 @@ char *postMessage =
   "\r\n"
   "Hello World\r\n"
 ;
+
 char *postChunkedMessage =
   "POST /foobar HTTP/1.1\r\n"
   "Host: localhost\r\n"
@@ -67,13 +69,31 @@ char *postChunkedMessage =
   "llo World\r\n"
   "0\r\n"
 ;
+
 char *responseMessage =
   "HTTP/1.0 200 OK\r\n"
-  "Content-Length: 11\r\n"
+  "Content-Length: 13\r\n"
   "\r\n"
   "Hello World\r\n"
 ;
 
+char *responseChunkedMessage =
+  "HTTP/1.0 200 OK\r\n"
+  "Transfer-Encoding: chunked\r\n"
+  "\r\n"
+  "2\r\n"
+  "He\r\n"
+  "B\r\n"
+  "llo World\r\n"
+  "0\r\n"
+;
+
+char *responseNotFoundMessage =
+  "HTTP/1.0 404 Not Found\r\n"
+  "Content-Length: 11\r\n"
+  "\r\n"
+  "Not Found\r\n"
+;
 
 
 /* // Passing network data into it */
@@ -89,6 +109,8 @@ int main() {
   ASSERT("request->body is null", request->body == NULL);
   ASSERT("request->chunksize is -1", request->chunksize == -1);
 
+  http_parser_message_free(request);
+  request  = http_parser_request_init();
   http_parser_request_data(request, getMessage, strlen(getMessage));
 
   printf("# GET request\n");
@@ -115,6 +137,36 @@ int main() {
   ASSERT("request->method is POST", strcmp(request->method, "POST") == 0);
   ASSERT("request->path is /foobar", strcmp(request->path, "/foobar") == 0);
   ASSERT("request->body is \"Helo World\\r\\n\"", strcmp(request->body, "Hello World\r\n") == 0);
+
+  printf("# Pre-loaded response\n");
+  ASSERT("response->status = 200", response->status == 200);
+
+  http_parser_message_free(response);
+  response = http_parser_response_init();
+  http_parser_response_data(response, responseMessage, strlen(responseMessage));
+
+  printf("# 200 OK response\n");
+  ASSERT("response->status = 200", response->status == 200);
+  ASSERT("response->statusmessage = \"OK\"", strcmp(response->statusMessage, "OK") == 0);
+  ASSERT("response->body = \"Hello World\\r\\n\"", strcmp(response->body, "Hello World\r\n") == 0);
+
+  http_parser_message_free(response);
+  response = http_parser_response_init();
+  http_parser_response_data(response, responseChunkedMessage, strlen(responseChunkedMessage));
+
+  printf("# 200 OK response (chunked)\n");
+  ASSERT("response->status = 200", response->status == 200);
+  ASSERT("response->statusmessage = \"OK\"", strcmp(response->statusMessage, "OK") == 0);
+  ASSERT("response->body = \"Hello World\\r\\n\"", strcmp(response->body, "Hello World\r\n") == 0);
+
+  http_parser_message_free(response);
+  response = http_parser_response_init();
+  http_parser_response_data(response, responseNotFoundMessage, strlen(responseNotFoundMessage));
+
+  printf("# 404 Not Found response\n");
+  ASSERT("response->status = 404", response->status == 404);
+  ASSERT("response->statusmessage = \"Not Found\"", strcmp(response->statusMessage, "Not Found") == 0);
+  ASSERT("response->body = \"Not Found\\r\\n\"", strcmp(response->body, "Not Found\r\n") == 0);
 
   return err;
 }
