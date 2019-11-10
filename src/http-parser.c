@@ -8,11 +8,15 @@ extern "C" {
 #include <strings.h>
 
 #include "http-parser.h"
+#include "http-parser-statusses.h"
 
 #ifndef NULL
 #define NULL ((void*)0)
 #endif
 
+/**
+ * Frees everything in a header that was malloc'd by http-parser
+ */
 void http_parser_header_free(struct http_parser_header *header) {
   if (header->next) http_parser_header_free(header->next);
   if (header->key) free(header->key);
@@ -20,8 +24,12 @@ void http_parser_header_free(struct http_parser_header *header) {
   free(header);
 }
 
-char *http_parser_header_get(struct http_parser_request *request, char *key) {
-  struct http_parser_header *header = request->headers;
+/**
+ * Searches for the given key in the list of headers
+ * Returns the header's value or NULL if not found
+ */
+char *http_parser_header_get(struct http_parser_message *subject, char *key) {
+  struct http_parser_header *header = subject->headers;
   while(header) {
     if (!strcasecmp(key, header->key)) {
       return header->value;
@@ -31,27 +39,156 @@ char *http_parser_header_get(struct http_parser_request *request, char *key) {
   return NULL;
 }
 
-void http_parser_request_free(struct http_parser_request *request) {
-  if (request->method) free(request->method);
-  if (request->path) free(request->path);
-  if (request->version) free(request->version);
-  if (request->body) free(request->body);
-  if (request->headers) http_parser_header_free(request->headers);
-  free(request);
+/**
+ * Write a header into the subject's list of headers
+ */
+void http_parser_header_set(struct http_parser_message *subject, char *key, char *value) {
+  struct http_parser_header *header = malloc(sizeof(struct http_parser_header));
+  header->key = key;
+  header->value = value;
+  header->next = subject->headers;
+  subject->headers = header;
 }
 
-struct http_parser_request * http_parser_request_init() {
-  struct http_parser_request *request = calloc(1, sizeof(struct http_parser_request));
-  return request;
+/**
+ * Frees everything in a http_message that was malloc'd by http-parser
+ */
+void http_parser_message_free(struct http_parser_message *subject) {
+  if (subject->method) free(subject->method);
+  if (subject->path) free(subject->path);
+  if (subject->version) free(subject->version);
+  if (subject->body) free(subject->body);
+  if (subject->headers) http_parser_header_free(subject->headers);
+  free(subject);
 }
 
-void http_parser_request_data(struct http_parser_request *request, char *data, int size) {
+/**
+ * Frees everything in a http pair that was malloc'd by http-parser
+ */
+void http_parser_pair_free(struct http_parser_pair *pair) {
+  if (pair->request) http_parser_message_free(pair->request);
+  if (pair->response) http_parser_message_free(pair->response);
+  free(pair);
+}
+
+/**
+ * Initializes a http_message as request
+ */
+struct http_parser_message * http_parser_request_init() {
+  struct http_parser_message *message = calloc(1, sizeof(struct http_parser_message));
+  return message;
+}
+
+/**
+ * Initializes a http_message as reponse
+ */
+struct http_parser_message * http_parser_response_init() {
+  struct http_parser_message *message = http_parser_request_init();
+  message->status = 200;
+  return message;
+}
+
+/**
+ * Initialize a http_pair with userdata
+ */
+struct http_parser_pair * http_parser_pair_init(void *udata) {
+  struct http_parser_pair *pair = calloc(1, sizeof(struct http_parser_pair));
+  pair->request  = http_parser_request_init();
+  pair->response = http_parser_response_init();
+  pair->udata    = udata;
+  return pair;
+}
+
+/**
+ * Removes the first string from a http_message's body
+ */
+static void http_parser_message_remove_body_string(struct http_parser_message *message) {
+  int length = strlen(message->body);
+  int size   = message->bodysize - 2 - length;
+  char *buf  = calloc(1,size+1);
+  memcpy(buf, message->body + length + 2, size);
+  free(message->body);
+  message->body = buf;
+  message->bodysize = size;
+}
+
+/**
+ * Reads a header from a message's body and removes that lines from the body
+ *
+ * Caution: does not support multi-line headers yet
+ */
+static int http_parser_message_read_header(struct http_parser_message *message) {
   struct http_parser_header *header;
-  struct http_parser_event *ev;
   char *index;
-  int newsize;
+
+  // Require more data if no line break found
+  index = strstr(message->body, "\r\n");
+  if (!index) return 1;
+  *(index) = '\0';
+
+  // Detect end of headers
+  if (!strlen(message->body)) {
+    http_parser_message_remove_body_string(message);
+    return 0;
+  }
+
+  // Prepare new header
+  header = calloc(1,sizeof(header));
+  header->key = calloc(1,strlen(message->body));
+  header->value = calloc(1,strlen(message->body));
+
+  // Detect colon
+  index = strstr(message->body, ":");
+  if (!index) {
+    printf("NO COLON: %s\n", message->body);
+    http_parser_header_free(header);
+    http_parser_message_remove_body_string(message);
+    return 1;
+  }
+
+  // Copy key & value
+  *(index) = '\0';
+  strcpy(header->key, message->body);
+  strcpy(header->value, index + 1);
+
+  // Assign to the header list
+  header->next = message->headers;
+  message->headers = header;
+
+  // Remove the header line
+  // Twice, because we split the string
+  http_parser_message_remove_body_string(message);
+  http_parser_message_remove_body_string(message);
+  return 2;
+}
+
+/**
+ * Pass data into the pair's request
+ *
+ * Triggers onRequest if set
+ */
+void http_parser_pair_request_data(struct http_parser_pair *pair, char *data, int size) {
+  struct http_parser_event *ev;
+  http_parser_request_data(pair->request, data, size);
+  if (pair->request->_state == HTTP_PARSER_STATE_RESPONSE) {
+    if (pair->onRequest) {
+      ev           = calloc(1,sizeof(struct http_parser_event));
+      ev->request  = pair->request;
+      ev->response = pair->response;
+      ev->udata    = pair->udata;
+      pair->onRequest(ev);
+      free(ev);
+      pair->onRequest = NULL;
+    }
+  }
+}
+
+/**
+ * Insert data into a http_message, acting as if it's a request
+ */
+void http_parser_request_data(struct http_parser_message *request, char *data, int size) {
+  char *index;
   char *colon;
-  char *buf;
   char *aContentLength;
   int iContentLength;
 
@@ -64,9 +201,8 @@ void http_parser_request_data(struct http_parser_request *request, char *data, i
   // Make string functions not segfault
   *(request->body + request->bodysize) = '\0';
 
-  int running = 1;
-  while(running) {
-    switch(request->state) {
+  while(1) {
+    switch(request->_state) {
       case HTTP_PARSER_STATE_PANIC:
         return;
       case HTTP_PARSER_STATE_METHOD:
@@ -81,17 +217,12 @@ void http_parser_request_data(struct http_parser_request *request, char *data, i
         request->path    = calloc(1, 8192);
         request->version = calloc(1, 4);
         if (sscanf(request->body, "%6s %8191s HTTP/%3s", request->method, request->path, request->version) != 3) {
-          request->state = HTTP_PARSER_STATE_PANIC;
+          request->_state = HTTP_PARSER_STATE_PANIC;
           return;
         }
 
-        // Remove the method line
-        newsize = request->bodysize - 2 - (index - request->body);
-        buf     = calloc(1,newsize+1);
-        memcpy(buf, index + 2, newsize);
-        free(request->body);
-        request->body = buf;
-        request->bodysize = newsize;
+        // Remove method line
+        http_parser_message_remove_body_string(request);
 
         // Detect query
         // No need to malloc, already done by sscanf
@@ -102,63 +233,17 @@ void http_parser_request_data(struct http_parser_request *request, char *data, i
         }
 
         // Signal we're now reading headers
-        request->state = HTTP_PARSER_STATE_HEADER;
+        request->_state = HTTP_PARSER_STATE_HEADER;
         break;
 
       case HTTP_PARSER_STATE_HEADER:
-
-        // Wait for more data if not line break found
-        index = strstr(request->body, "\r\n");
-        if (!index) return;
-        *(index) = '\0';
-
-        // Detect end of headers
-        newsize = strlen(request->body);
-        if (!newsize) {
-
-          // Remove the blank line
-          newsize = request->bodysize - 2;
-          buf = calloc(1,newsize+1);
-          memcpy(buf, index + 2, newsize);
-          free(request->body);
-          request->body = buf;
-          request->bodysize = newsize;
-
-          // No content-length = respond
+        if (!http_parser_message_read_header(request)) {
           if (http_parser_header_get(request, "content-length")) {
-            request->state = HTTP_PARSER_STATE_BODY;
+            request->_state = HTTP_PARSER_STATE_BODY;
           } else {
-            request->state = HTTP_PARSER_STATE_RESPONSE;
+            request->_state = HTTP_PARSER_STATE_RESPONSE;
           }
-
-          break;
         }
-
-        // Prepare new header
-        header = calloc(1,sizeof(header));
-        header->key = calloc(1,strlen(request->body));
-        header->value = calloc(1,strlen(request->body));
-
-        // Copy key & value
-        colon = strstr(request->body, ":");
-        if (colon) {
-          *(colon) = '\0';
-          strcpy(header->key, request->body);
-          strcpy(header->value, colon + 1);
-        }
-
-        // Assign to the header list
-        header->next = request->headers;
-        request->headers = header;
-
-        // Remove the header line
-        newsize = request->bodysize - 2 - (index - request->body);
-        buf = calloc(1,newsize+1);
-        memcpy(buf, index + 2, newsize);
-        free(request->body);
-        request->body = buf;
-        request->bodysize = newsize;
-
         break;
 
       case HTTP_PARSER_STATE_BODY:
@@ -169,29 +254,21 @@ void http_parser_request_data(struct http_parser_request *request, char *data, i
 
         // Not enough data = skip
         if (request->bodysize < iContentLength) {
-          running = 0;
-          break;
+          return;
         }
 
         // Change size to indicated size
         request->bodysize = iContentLength;
-        request->state = HTTP_PARSER_STATE_RESPONSE;
+        request->_state = HTTP_PARSER_STATE_RESPONSE;
         break;
 
       case HTTP_PARSER_STATE_RESPONSE:
-
-        if (request->onRequest) {
-          ev = calloc(1,sizeof(struct http_parser_event));
-          ev->request = request;
-          request->onRequest(ev);
-          request->onRequest = NULL;
-        }
-
-        running = 0;
-        break;
+        return;
     }
   }
 }
+
+// TODO: http_parser_response_data
 
 #ifdef __cplusplus
 } // extern "C"
