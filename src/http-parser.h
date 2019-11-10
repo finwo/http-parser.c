@@ -9,7 +9,7 @@ extern "C" {
 #define HTTP_PARSER_STATE_HEADER       1
 #define HTTP_PARSER_STATE_BODY         2
 #define HTTP_PARSER_STATE_BODY_CHUNKED 3
-#define HTTP_PARSER_STATE_RESPONSE     4
+#define HTTP_PARSER_STATE_DONE         4
 #define HTTP_PARSER_STATE_PANIC    666
 
 struct http_parser_header {
@@ -25,6 +25,7 @@ struct http_parser_event {
 };
 
 struct http_parser_message {
+  int ready;
   int status;
   char *method;
   char *path;

@@ -215,7 +215,7 @@ static int http_parser_message_read_header(struct http_parser_message *message) 
 void http_parser_pair_request_data(struct http_parser_pair *pair, char *data, int size) {
   struct http_parser_event *ev;
   http_parser_request_data(pair->request, data, size);
-  if (pair->request->_state == HTTP_PARSER_STATE_RESPONSE) {
+  if (pair->request->_state == HTTP_PARSER_STATE_DONE) {
     if (pair->onRequest) {
       ev           = calloc(1,sizeof(struct http_parser_event));
       ev->request  = pair->request;
@@ -291,7 +291,7 @@ void http_parser_request_data(struct http_parser_message *request, char *data, i
           ) {
             request->_state = HTTP_PARSER_STATE_BODY;
           } else {
-            request->_state = HTTP_PARSER_STATE_RESPONSE;
+            request->_state = HTTP_PARSER_STATE_DONE;
           }
         }
         break;
@@ -313,8 +313,8 @@ void http_parser_request_data(struct http_parser_message *request, char *data, i
         // Fetch the content length
         aContentLength = http_parser_header_get(request, "content-length");
         if (!aContentLength) {
-          request->_state = HTTP_PARSER_STATE_RESPONSE;
-          return;
+          request->_state = HTTP_PARSER_STATE_DONE;
+          break;
         }
         iContentLength = atoi(aContentLength);
 
@@ -325,7 +325,7 @@ void http_parser_request_data(struct http_parser_message *request, char *data, i
 
         // Change size to indicated size
         request->bodysize = iContentLength;
-        request->_state = HTTP_PARSER_STATE_RESPONSE;
+        request->_state = HTTP_PARSER_STATE_DONE;
         break;
 
       case HTTP_PARSER_STATE_BODY_CHUNKED:
@@ -357,11 +357,8 @@ void http_parser_request_data(struct http_parser_message *request, char *data, i
 
           // 0 = EOF
           if (request->chunksize == 0) {
-            request->_state = HTTP_PARSER_STATE_RESPONSE;
-            free(request->body);
-            request->body = request->buf;
-            request->buf = NULL;
-            return;
+            request->_state = HTTP_PARSER_STATE_DONE;
+            break;
           }
 
         }
@@ -389,7 +386,17 @@ void http_parser_request_data(struct http_parser_message *request, char *data, i
 
         break;
 
-      case HTTP_PARSER_STATE_RESPONSE:
+      case HTTP_PARSER_STATE_DONE:
+
+        // Temporary buffer > direct buffer
+        if (request->buf) {
+          free(request->body);
+          request->body = request->buf;
+          request->buf  = NULL;
+        }
+
+        // Mark the request as ready
+        request->ready  = 1;
         return;
     }
   }
