@@ -208,6 +208,72 @@ static int http_parser_message_read_header(struct http_parser_message *message) 
 }
 
 /**
+ * Reads chunked data
+ */
+static int http_parser_message_read_chunked(struct http_parser_message *message) {
+  char *aChunkSize;
+  char *index;
+
+  // Attempt reading the chunk size
+  if (message->chunksize == -1) {
+
+    // Check if we have a line
+    index = strstr(message->body, "\r\n");
+    if (!index) {
+      return 1;
+    }
+    *(index) = '\0';
+
+    // Empty line = skip
+    if (!strlen(message->body)) {
+      http_parser_message_remove_body_string(message);
+      return 2;
+    }
+
+    // Read hex chunksize
+    aChunkSize = calloc(1, 17);
+    sscanf(message->body, "%16s", aChunkSize);
+    message->chunksize = xtoi(aChunkSize);
+    free(aChunkSize);
+
+    // Remove chunksize line
+    http_parser_message_remove_body_string(message);
+
+    // 0 = EOF
+    if (message->chunksize == 0) {
+      return 0;
+    }
+
+    // Signal we're still reading
+    return 2;
+  }
+
+  // Create buffer if not present yet
+  if (!message->buf) {
+    message->buf = calloc(1,1);
+    message->bufsize = 0;
+  }
+
+  // Ensure the body has enough data
+  if (message->bodysize < message->chunksize) {
+    return 1;
+  }
+
+  // Copy data into buffer
+  message->buf = realloc(message->buf, message->bufsize + message->chunksize + 1);
+  memcpy(message->buf + message->bufsize, message->body, message->chunksize );
+  message->bufsize += message->chunksize;
+  *(message->buf + message->bufsize) = '\0';
+
+  // Remove chunk from receiving data and reset chunking
+  http_parser_message_remove_body_bytes(message, message->chunksize);
+  message->chunksize = -1;
+
+  // No error or end encountered
+  return 2;
+}
+
+/**
  * Pass data into the pair's request
  *
  * Triggers onRequest if set
@@ -237,6 +303,7 @@ void http_parser_request_data(struct http_parser_message *request, char *data, i
   char *aContentLength;
   int iContentLength;
   char *aChunkSize;
+  int res;
 
   // Add event data to buffer
   if (!request->body) request->body = malloc(1);
@@ -328,60 +395,17 @@ void http_parser_request_data(struct http_parser_message *request, char *data, i
         break;
 
       case HTTP_PARSER_STATE_BODY_CHUNKED:
+        res = http_parser_message_read_chunked(request);
 
-        // Detect chunk size if none present
-        if (request->chunksize == -1) {
-
-          // Check if we have a line
-          index = strstr(request->body, "\r\n");
-          if (!index) {
-            return;
-          }
-          *(index) = '\0';
-
-          // Empty line = skip
-          if (!strlen(request->body)) {
-            http_parser_message_remove_body_string(request);
-            break;
-          }
-
-          // Read hex chunksize
-          aChunkSize = calloc(1, 17);
-          sscanf(request->body, "%16s", aChunkSize);
-          request->chunksize = xtoi(aChunkSize);
-          free(aChunkSize);
-
-          // Remove chunksize line
-          http_parser_message_remove_body_string(request);
-
-          // 0 = EOF
-          if (request->chunksize == 0) {
-            request->_state = HTTP_PARSER_STATE_DONE;
-            break;
-          }
-
-        }
-
-        // Create buffer if not present yet
-        if (!request->buf) {
-          request->buf = calloc(1,1);
-          request->bufsize = 0;
-        }
-
-        // Ensure if the body has enough data
-        if (request->bodysize < request->chunksize) {
+        if (res == 0) {
+          // Done
+          request->_state = HTTP_PARSER_STATE_DONE;
+        } else if (res == 1) {
+          // More data needed
           return;
+        } else if (res == 2) {
+          // Still reading
         }
-
-        // Copy data into buffer
-        request->buf = realloc(request->buf, request->bufsize + request->chunksize + 1);
-        memcpy(request->buf + request->bufsize, request->body, request->chunksize );
-        request->bufsize += request->chunksize;
-        *(request->buf + request->bufsize) = '\0';
-
-        // Remove chunk from receiving data and reset chunking
-        http_parser_message_remove_body_bytes(request, request->chunksize);
-        request->chunksize = -1;
 
         break;
 
