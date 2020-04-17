@@ -278,15 +278,15 @@ static int http_parser_message_read_chunked(struct http_parser_message *message)
   return 2;
 }
 
-char * http_parser_print_pair_response(struct http_parser_pair *pair) {
-  return http_parser_print_response(pair->response);
+char * http_parser_sprint_pair_response(struct http_parser_pair *pair) {
+  return http_parser_sprint_response(pair->response);
 }
 
-char * http_parser_print_pair_quest(struct http_parser_pair *pair) {
-  return http_parser_print_response(pair->response);
+char * http_parser_sprint_pair_quest(struct http_parser_pair *pair) {
+  return http_parser_sprint_response(pair->response);
 }
 
-char * http_parser_print_response(struct http_parser_message *response) {
+char * http_parser_sprint_response(struct http_parser_message *response) {
   char *result = calloc(1,256);
   struct http_parser_header *header;
   int index, length;
@@ -334,10 +334,10 @@ char * http_parser_print_response(struct http_parser_message *response) {
   *(result + length) = '\0';
   memcpy( result + index + 2, response->body, response->bodysize );
 
-  return result;;
+  return result;
 }
 
-char * http_parser_print_request(struct http_parser_message *request) {
+char * http_parser_sprint_request(struct http_parser_message *request) {
   char *result = calloc(1,8192);
   struct http_parser_header *header;
   int index, length;
@@ -410,7 +410,7 @@ char * http_parser_print_request(struct http_parser_message *request) {
     *(result+length+5) = '\0';
   }
 
-  return result;;
+  return result;
 }
 
 /**
