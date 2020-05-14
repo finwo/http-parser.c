@@ -282,8 +282,8 @@ char * http_parser_sprint_pair_response(struct http_parser_pair *pair) {
   return http_parser_sprint_response(pair->response);
 }
 
-char * http_parser_sprint_pair_quest(struct http_parser_pair *pair) {
-  return http_parser_sprint_response(pair->response);
+char * http_parser_sprint_pair_request(struct http_parser_pair *pair) {
+  return http_parser_sprint_request(pair->request);
 }
 
 char * http_parser_sprint_response(struct http_parser_message *response) {
