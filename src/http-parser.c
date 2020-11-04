@@ -342,7 +342,7 @@ char * http_parser_sprint_response(struct http_parser_message *response) {
   length = index + response->bodysize;
   result = realloc(result, length + 1);
   *(result + length) = '\0';
-  memcpy( result + index + 2, response->body, response->bodysize );
+  memcpy( result + index, response->body, response->bodysize );
 
   return result;
 }
