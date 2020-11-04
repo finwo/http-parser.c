@@ -80,10 +80,12 @@ char *http_parser_header_get(struct http_parser_message *subject, char *key) {
  */
 void http_parser_header_set(struct http_parser_message *subject, char *key, char *value) {
   struct http_parser_header *header = malloc(sizeof(struct http_parser_header));
-  header->key = key;
-  header->value = value;
+  header->key = malloc(strlen(key)+1);
+  header->value = malloc(strlen(value)+1);
   header->next = subject->headers;
   subject->headers = header;
+  strcpy(header->key, key);
+  strcpy(header->value, value);
 }
 
 /**
