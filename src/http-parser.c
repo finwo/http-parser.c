@@ -278,6 +278,16 @@ static int http_parser_message_read_chunked(struct http_parser_message *message)
   return 2;
 }
 
+char * http_parser_status_message(int status) {
+  int i;
+  for(i=0; http_parser_statuses[i].status; i++) {
+    if (http_parser_statuses[i].status == status) {
+      return http_parser_statuses[i].message;
+    }
+  }
+  return NULL;
+}
+
 char * http_parser_sprint_pair_response(struct http_parser_pair *pair) {
   return http_parser_sprint_response(pair->response);
 }
@@ -296,7 +306,7 @@ char * http_parser_sprint_response(struct http_parser_message *response) {
       "HTTP/%s %d %s\r\n"
       , response->version
       , response->status
-      , response->statusMessage
+      , response->statusMessage ? response->statusMessage : http_parser_status_message(response->status)
   );
 
   // Headers
