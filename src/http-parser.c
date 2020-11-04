@@ -280,9 +280,9 @@ static int http_parser_message_read_chunked(struct http_parser_message *message)
 
 char * http_parser_status_message(int status) {
   int i;
-  for(i=0; http_parser_statuses[i].status; i++) {
-    if (http_parser_statuses[i].status == status) {
-      return http_parser_statuses[i].message;
+  for(i=0; http_parser_statusses[i].status; i++) {
+    if (http_parser_statusses[i].status == status) {
+      return http_parser_statusses[i].message;
     }
   }
   return NULL;
