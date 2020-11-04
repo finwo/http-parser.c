@@ -1,7 +1,7 @@
 #include <stdio.h>
 #include <string.h>
 
-#include "src/http-parser.h"
+#include "http-parser.h"
 
 #ifndef NULL
 #define NULL ((void*)0)

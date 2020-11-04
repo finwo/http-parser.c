@@ -1,5 +1,5 @@
-#ifndef _HTTP_PARSER_H_
-#define _HTTP_PARSER_H_
+#ifndef _HTTP_PARSER_STATUSSES_H_
+#define _HTTP_PARSER_STATUSSES_H_
 
 #ifdef __cplusplus
 extern "C" {
@@ -102,4 +102,4 @@ struct {
 } // extern "C"
 #endif
 
-#endif // _HTTP_PARSER_H_
+#endif // _HTTP_PARSER_STATUSSES_H_
