@@ -15,7 +15,6 @@
 
 #define ASSERT(M,c) (printf(((err|=!(c),(c)) ? (T_LIME " PASS " T_NORMAL " %s\n") : (T_RED " FAIL " T_NORMAL " %s\n")),M))
 
-
 /* static void onRequest(struct http_parser_event *ev) { */
 /*   // The request has been received */
 /*   // Answer the request directly or pass it to a route handler of sorts */
