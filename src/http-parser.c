@@ -80,24 +80,22 @@ char *http_parser_header_get(struct http_parser_message *subject, char *key) {
  */
 void http_parser_header_set(struct http_parser_message *subject, char *key, char *value) {
   struct http_parser_header *header = malloc(sizeof(struct http_parser_header));
-  header->key = malloc(strlen(key)+1);
-  header->value = malloc(strlen(value)+1);
-  header->next = subject->headers;
+  header->key      = strdup(key);
+  header->value    = strdup(value);
+  header->next     = subject->headers;
   subject->headers = header;
-  strcpy(header->key, key);
-  strcpy(header->value, value);
 }
 
 /**
  * Frees everything in a http_message that was malloc'd by http-parser
  */
 void http_parser_message_free(struct http_parser_message *subject) {
-  if (subject->method) free(subject->method);
-  if (subject->path) free(subject->path);
+  if (subject->method ) free(subject->method);
+  if (subject->path   ) free(subject->path);
   if (subject->version) free(subject->version);
-  if (subject->body) free(subject->body);
+  if (subject->body   ) free(subject->body);
   if (subject->headers) http_parser_header_free(subject->headers);
-  if (subject->buf) free(subject->buf);
+  if (subject->buf    ) free(subject->buf);
   free(subject);
 }
 
