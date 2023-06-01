@@ -494,10 +494,10 @@ void http_parser_request_data(struct http_parser_message *request, char *data, i
         *(index) = '\0';
 
         // Read method and path
-        request->method  = calloc(1, 7);
+        request->method  = calloc(1, 16);
         request->path    = calloc(1, 8192);
         request->version = calloc(1, 4);
-        if (sscanf(request->body, "%6s %8191s HTTP/%3s", request->method, request->path, request->version) != 3) {
+        if (sscanf(request->body, "%15s %8191s HTTP/%3s", request->method, request->path, request->version) != 3) {
           request->_state = HTTP_PARSER_STATE_PANIC;
           return;
         }

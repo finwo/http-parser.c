@@ -69,6 +69,12 @@ char *postChunkedMessage =
   "0\r\n"
 ;
 
+char *optionsRequest =
+  "OPTIONS /hello/world HTTP/1.1\r\n"
+  "Host: localhost\r\n"
+  "\r\n"
+;
+
 char *responseMessage =
   "HTTP/1.0 200 OK\r\n"
   "Content-Length: 13\r\n"
@@ -138,6 +144,15 @@ int main() {
   ASSERT("request->method is POST", strcmp(request->method, "POST") == 0);
   ASSERT("request->path is /foobar", strcmp(request->path, "/foobar") == 0);
   ASSERT("request->body is \"Helo World\\r\\n\"", strcmp(request->body, "Hello World\r\n") == 0);
+
+  http_parser_message_free(request);
+  request = http_parser_request_init();
+  http_parser_request_data(request, optionsRequest, strlen(optionsRequest));
+
+  printf("# OPTIONS request\n");
+  ASSERT("request->version is 1.1", strcmp(request->version, "1.1") == 0);
+  ASSERT("request->method is OPTIONS", strcmp(request->method, "OPTIONS") == 0);
+  ASSERT("request->path is /hello/world", strcmp(request->path, "/hello/world") == 0);
 
   printf("# Pre-loaded response\n");
   ASSERT("response->status = 200", response->status == 200);
