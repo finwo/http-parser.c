@@ -315,13 +315,13 @@ char * http_parser_sprint_response(struct http_parser_message *response) {
     index = strlen(result);
     length = index +
       strlen(header->key) +
-      2 +
+      2 + // ": "
       strlen(header->value) +
-      3 +
-      3;
+      3;  // \r\n\0
 
     // Asign memory
     result = realloc(result,length);
+    if (!result) exit(1); // Likely out of memory
     *(result + length) = '\0';
 
     // Write header
@@ -376,9 +376,9 @@ char * http_parser_sprint_request(struct http_parser_message *request) {
     index = strlen(result);
     length = index +
       strlen(header->key) +
-      2 +
+      2 + // ": "
       strlen(header->value) +
-      3;
+      3;  // \r\n\0
 
     // Asign memory
     result = realloc(result,length);
