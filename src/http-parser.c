@@ -296,8 +296,9 @@ char * http_parser_sprint_pair_request(struct http_parser_pair *pair) {
   return http_parser_sprint_request(pair->request);
 }
 
+// Caution: headers should fit in 64k
 char * http_parser_sprint_response(struct http_parser_message *response) {
-  char *result = calloc(1,256);
+  char *result = calloc(1,65536);
   struct http_parser_header *header;
   int index, length;
 
@@ -312,25 +313,11 @@ char * http_parser_sprint_response(struct http_parser_message *response) {
   // Headers
   header = response->headers;
   while(header) {
-    index = strlen(result);
-    length = index +
-      strlen(header->key) +
-      2 + // ": "
-      strlen(header->value) +
-      3;  // \r\n\0
-
-    // Asign memory
-    result = realloc(result,length);
-    if (!result) exit(1); // Likely out of memory
-    *(result + length) = '\0';
-
     // Write header
-    sprintf(result + index,
-      "%s: %s\r\n",
-      header->key,
-      header->value
-    );
-
+    strcat(result, header->key);
+    strcat(result, ": ");
+    strcat(result, header->value);
+    strcat(result, "\r\n");
     // Next header
     header = header->next;
   }
@@ -347,8 +334,9 @@ char * http_parser_sprint_response(struct http_parser_message *response) {
   return result;
 }
 
+// Caution: headers should fit in 64k
 char * http_parser_sprint_request(struct http_parser_message *request) {
-  char *result = calloc(1,8192);
+  char *result = calloc(1,65536);
   struct http_parser_header *header;
   int index, length;
 
@@ -373,24 +361,11 @@ char * http_parser_sprint_request(struct http_parser_message *request) {
   // Headers
   header = request->headers;
   while(header) {
-    index = strlen(result);
-    length = index +
-      strlen(header->key) +
-      2 + // ": "
-      strlen(header->value) +
-      3;  // \r\n\0
-
-    // Asign memory
-    result = realloc(result,length);
-    *(result + length) = '\0';
-
     // Write header
-    sprintf(result + index,
-      "%s: %s\r\n",
-      header->key,
-      header->value
-    );
-
+    strcat(result, header->key);
+    strcat(result, ": ");
+    strcat(result, header->value);
+    strcat(result, "\r\n");
     // Next header
     header = header->next;
   }
