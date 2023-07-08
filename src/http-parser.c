@@ -449,7 +449,7 @@ char * http_parser_sprint_request(struct http_parser_message *request) {
  *
  * Triggers onRequest if set
  */
-void http_parser_pair_request_data(struct http_parser_pair *pair, char *data, int size) {
+void http_parser_pair_request_data(struct http_parser_pair *pair, const char *data, int size) {
   struct http_parser_event *ev;
   http_parser_request_data(pair->request, data, size);
   if (pair->request->ready && pair->onRequest) {
@@ -469,7 +469,7 @@ void http_parser_pair_request_data(struct http_parser_pair *pair, char *data, in
  *
  * Triggers onRequest if set
  */
-void http_parser_pair_response_data(struct http_parser_pair *pair, char *data, int size) {
+void http_parser_pair_response_data(struct http_parser_pair *pair, const char *data, int size) {
   struct http_parser_event *ev;
   http_parser_response_data(pair->request, data, size);
   if (pair->request->ready && pair->onResponse) {
@@ -487,7 +487,7 @@ void http_parser_pair_response_data(struct http_parser_pair *pair, char *data, i
 /**
  * Insert data into a http_message, acting as if it's a request
  */
-void http_parser_request_data(struct http_parser_message *request, char *data, int size) {
+void http_parser_request_data(struct http_parser_message *request, const char *data, int size) {
   char *index;
   char *aContentLength;
   int iContentLength;
@@ -618,7 +618,7 @@ void http_parser_request_data(struct http_parser_message *request, char *data, i
 /**
  * Insert data into a http_message, acting as if it's a request
  */
-void http_parser_response_data(struct http_parser_message *response, char *data, int size) {
+void http_parser_response_data(struct http_parser_message *response, const char *data, int size) {
   char *index;
   char *aStatus;
   int iContentLength;

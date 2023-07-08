@@ -62,11 +62,11 @@ struct http_parser_message * http_parser_request_init();
 struct http_parser_message * http_parser_response_init();
 
 
-void http_parser_request_data(struct http_parser_message *request, char *data, int size);
-void http_parser_response_data(struct http_parser_message *response, char *data, int size);
+void http_parser_request_data(struct http_parser_message *request, const char *data, int size);
+void http_parser_response_data(struct http_parser_message *response, const char *data, int size);
 
-void http_parser_pair_request_data(struct http_parser_pair *pair, char *data, int size);
-void http_parser_pair_response_data(struct http_parser_pair *pair, char *data, int size);
+void http_parser_pair_request_data(struct http_parser_pair *pair, const char *data, int size);
+void http_parser_pair_response_data(struct http_parser_pair *pair, const char *data, int size);
 
 void http_parser_pair_free(struct http_parser_pair *pair);
 void http_parser_message_free(struct http_parser_message *subject);
