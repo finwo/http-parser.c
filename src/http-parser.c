@@ -85,6 +85,19 @@ char *http_parser_header_get(struct http_parser_message *subject, const char *ke
  * Write a header into the subject's list of headers
  */
 void http_parser_header_set(struct http_parser_message *subject, const char *key, const char *value) {
+  struct http_parser_header *header = _http_parser_header_get(subject, key);
+  if (header) {
+    free(header->value);
+    header->value = strdup(value);
+  } else {
+    http_parser_header_add(subject, key, value);
+  }
+}
+
+/**
+ * Add a header into the subject's list of headers
+ */
+void http_parser_header_add(struct http_parser_message *subject, const char *key, const char *value) {
   struct http_parser_header *header = malloc(sizeof(struct http_parser_header));
   header->key      = strdup(key);
   header->value    = strdup(value);
