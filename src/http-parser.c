@@ -56,19 +56,13 @@ void http_parser_header_free(struct http_parser_header *header) {
 }
 
 /**
- * Searches for the given key in the list of headers
- * Returns the header's value or NULL if not found
+ * Internal, returns the pointer to a header entry that matches the key
  */
-char *http_parser_header_get(struct http_parser_message *subject, char *key) {
+struct http_parser_header * _http_parser_header_get(struct http_parser_message *subject, const char *key) {
   struct http_parser_header *header = subject->headers;
-  char *value;
   while(header) {
-    if (!strcasecmp(key, header->key)) {
-      value = header->value;
-      while(*(value) == ' ') {
-        value++;
-      }
-      return value;
+    if (!strcasecmp(header->key, key)) {
+      return header;
     }
     header = header->next;
   }
@@ -76,14 +70,48 @@ char *http_parser_header_get(struct http_parser_message *subject, char *key) {
 }
 
 /**
+ * Searches for the given key in the list of headers
+ * Returns the header's value or NULL if not found
+ */
+char *http_parser_header_get(struct http_parser_message *subject, const char *key) {
+  struct http_parser_header *header = _http_parser_header_get(subject, key);
+  if (!header) return NULL;
+  char *value = header->value;
+  while(*value == ' ') value++;
+  return value;
+}
+
+/**
  * Write a header into the subject's list of headers
  */
-void http_parser_header_set(struct http_parser_message *subject, char *key, char *value) {
+void http_parser_header_set(struct http_parser_message *subject, const char *key, const char *value) {
   struct http_parser_header *header = malloc(sizeof(struct http_parser_header));
   header->key      = strdup(key);
   header->value    = strdup(value);
   header->next     = subject->headers;
   subject->headers = header;
+}
+
+/**
+ * Write a header into the subject's list of headers
+ */
+void http_parser_header_del(struct http_parser_message *subject, const char *key) {
+  struct http_parser_header *header_prev = NULL;
+  struct http_parser_header *header_cur  = subject->headers;
+  while(header_cur) {
+    if (strcmp(header_cur->key, key) == 0) {
+      if (header_prev) {
+        header_prev->next = header_cur->next;
+      } else {
+        subject->headers = header_cur->next;
+      }
+      header_cur->next = NULL;
+      http_parser_header_free(header_cur);
+      header_cur = header_prev;
+    }
+    header_prev = header_cur;
+    header_cur  = header_cur->next;
+  }
 }
 
 /**

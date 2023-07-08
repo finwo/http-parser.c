@@ -52,9 +52,9 @@ struct http_parser_pair {
 };
 
 // Header management
-char *http_parser_header_get(struct http_parser_message *subject, char *key);
-void http_parser_header_set(struct http_parser_message *subject, char *key, char *value);
-char *http_parser_header_del(struct http_parser_message *subject, char *key);
+char *http_parser_header_get(struct http_parser_message *subject, const char *key);
+void http_parser_header_set(struct http_parser_message *subject ,const char *key, char *value);
+void http_parser_header_del(struct http_parser_message *subject, const char *key);
 
 struct http_parser_pair    * http_parser_pair_init(void *udata);
 struct http_parser_message * http_parser_request_init();
