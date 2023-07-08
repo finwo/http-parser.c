@@ -120,7 +120,12 @@ void http_parser_header_del(struct http_parser_message *subject, const char *key
       }
       header_cur->next = NULL;
       http_parser_header_free(header_cur);
-      header_cur = header_prev;
+      if (header_prev) {
+        header_cur = header_prev->next;
+      } else {
+        header_cur = subject->headers;
+      }
+      continue;
     }
     header_prev = header_cur;
     header_cur  = header_cur->next;
