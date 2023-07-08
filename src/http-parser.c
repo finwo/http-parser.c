@@ -112,7 +112,7 @@ void http_parser_header_del(struct http_parser_message *subject, const char *key
   struct http_parser_header *header_prev = NULL;
   struct http_parser_header *header_cur  = subject->headers;
   while(header_cur) {
-    if (strcmp(header_cur->key, key) == 0) {
+    if (strcasecmp(header_cur->key, key) == 0) {
       if (header_prev) {
         header_prev->next = header_cur->next;
       } else {
