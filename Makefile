@@ -1,6 +1,13 @@
-http-parser-test: test.c src/http-parser.c
-	$(CC) -Isrc -o $@ $^
+SRC=$(wildcard src/*.c)
+SRC+=test.c
+
+http-parser-test: $(SRC) src/http-parser-statusses.h src/http-parser.h
+	$(CC) -Isrc -o $@ $(SRC)
 
 .PHONY: check
 check: http-parser-test
 	./$<
+
+.PHONY: clean
+clean:
+	rm -f http-parser-test
