@@ -22,6 +22,8 @@ struct http_parser_event {
   struct http_parser_message *request;
   struct http_parser_message *response;
   struct http_parser_pair *pair;
+  const char *chunk;
+  int chunksize;
   void *udata;
 };
 
@@ -41,6 +43,8 @@ struct http_parser_message {
   int bodysize;
   int chunktotal;
   int _state;
+  void (*onChunk)(struct http_parser_event*);
+  void *udata;
 };
 
 struct http_parser_pair {

@@ -261,6 +261,7 @@ static int http_parser_message_read_header(struct http_parser_message *message) 
 static int http_parser_message_read_chunked(struct http_parser_message *message) {
   char *aChunkSize;
   char *index;
+  struct http_parser_event *ev;
 
   // Attempt reading the chunk size
   if (message->chunksize == -1) {
@@ -310,11 +311,22 @@ static int http_parser_message_read_chunked(struct http_parser_message *message)
     return 1;
   }
 
-  // Copy data into buffer
-  message->buf = realloc(message->buf, message->bufsize + message->chunksize + 1);
-  memcpy(message->buf + message->bufsize, message->body, message->chunksize );
-  message->bufsize += message->chunksize;
-  *(message->buf + message->bufsize) = '\0';
+  // Either call onChunk method OR copy into message buffer
+  if (message->onChunk) {
+    // Call onChunk if the message has that set
+    ev            = calloc(1,sizeof(struct http_parser_event));
+    ev->udata     = message->udata;
+    ev->chunksize = message->chunksize;
+    ev->chunk     = message->body;
+    message->onChunk(ev);
+    free(ev);
+  } else {
+    // Copy data into buffer if no onChunk set
+    message->buf = realloc(message->buf, message->bufsize + message->chunksize + 1);
+    memcpy(message->buf + message->bufsize, message->body, message->chunksize );
+    message->bufsize += message->chunksize;
+    *(message->buf + message->bufsize) = '\0';
+  }
 
   // Remove chunk from receiving data and reset chunking
   http_parser_message_remove_body_bytes(message, message->chunksize);
