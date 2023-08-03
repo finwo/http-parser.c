@@ -429,7 +429,7 @@ struct buf * http_parser_sprint_request(struct http_parser_message *request) {
   strcat(result->data, "\r\n");
 
   // Handle chunked header
-  char *aTransferEncoding = http_parser_header_get(request, "transfer-encoding");
+  const char *aTransferEncoding = http_parser_header_get(request, "transfer-encoding");
   int isChunked = 0;
   if (aTransferEncoding && strcasecmp(aTransferEncoding, "chunked")) {
     isChunked = 1;
@@ -493,9 +493,9 @@ void http_parser_pair_response_data(struct http_parser_pair *pair, const struct 
  */
 void http_parser_request_data(struct http_parser_message *request, const struct buf *data) {
   char *index;
-  char *aContentLength;
+  const char *aContentLength;
   int iContentLength;
-  char *aChunkSize;
+  const char *aChunkSize;
   int res;
 
   // Add event data to buffer
@@ -621,8 +621,8 @@ void http_parser_response_data(struct http_parser_message *response, const struc
   char *index;
   char *aStatus;
   int iContentLength;
-  char *aContentLength;
-  char *aChunkSize;
+  const char *aContentLength;
+  const char *aChunkSize;
   int res;
 
   // Add event data to buffer
