@@ -433,7 +433,7 @@ struct buf * http_parser_sprint_request(struct http_parser_message *request) {
   int isChunked = 0;
   if (aTransferEncoding && strcasecmp(aTransferEncoding, "chunked")) {
     isChunked = 1;
-    sprintf(result->data + strlen(result->data), "%x\r\n", request->body->len);
+    sprintf(result->data + strlen(result->data), "%lx\r\n", request->body->len);
   }
 
   // Treat result as buffer from here
