@@ -65,7 +65,6 @@ struct http_parser_pair    * http_parser_pair_init(void *udata);
 struct http_parser_message * http_parser_request_init();
 struct http_parser_message * http_parser_response_init();
 
-
 void http_parser_request_data(struct http_parser_message *request, const char *data, int size);
 void http_parser_response_data(struct http_parser_message *response, const char *data, int size);
 
