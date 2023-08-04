@@ -235,7 +235,7 @@ static int http_parser_message_read_header(struct http_parser_message *message) 
   }
 
   // Prepare new header
-  header        = calloc(1,sizeof(header));
+  header        = calloc(1,sizeof(struct http_parser_message));
   header->key   = calloc(1,strlen(message->body->data)); // Using strlen, due to possible \r\n replacement
   header->value = calloc(1,strlen(message->body->data)); // Using strlen, due to possible \r\n replacement
 
@@ -371,8 +371,6 @@ struct buf * http_parser_sprint_response(struct http_parser_message *response) {
   result->cap  = 65536;
   result->data = calloc(1, result->cap);
 
-  int index, length;
-
   // Status
   sprintf(result->data,
       "HTTP/%s %d %s\r\n"
@@ -400,8 +398,6 @@ struct buf * http_parser_sprint_request(struct http_parser_message *request) {
   struct buf *result = calloc(1, sizeof(struct buf));
   result->cap  = 65536;
   result->data = calloc(1, result->cap);
-
-  int index, length;
 
   // Status
   sprintf(result->data,
