@@ -141,7 +141,7 @@ void http_parser_message_free(struct http_parser_message *subject) {
   if (subject->method ) free(subject->method);
   if (subject->path   ) free(subject->path);
   if (subject->version) free(subject->version);
-  if (subject->body   ) free(subject->body);
+  if (subject->body   ) { buf_clear(subject->body); free(subject->body); }
   if (subject->headers) http_parser_header_free(subject->headers);
   if (subject->buf    ) free(subject->buf);
   free(subject);
