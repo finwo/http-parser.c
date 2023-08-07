@@ -408,7 +408,7 @@ struct buf * http_parser_sprint_request(struct http_parser_message *request) {
   if (strstr(path, "/") != path) {
     tmppath        = path;
     path           = NULL;
-    isPathallocced = true;
+    isPathAllocced = true;
     aprintf(&path, "/%s", tmppath);
   }
 
