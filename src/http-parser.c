@@ -401,9 +401,16 @@ struct buf * http_parser_sprint_request(struct http_parser_message *request) {
   result->cap  = 65536;
   result->data = calloc(1, result->cap);
 
+  char *tmppath;
   char *path = request->path;
+  int isPathAllocced = 0;
   if (!path) path = "/";
-  if (!strlen(path)) path = "/";
+  if (strstr(path, "/") != path) {
+    tmppath        = path;
+    path           = NULL;
+    isPathallocced = true;
+    aprintf(&path, "/%s", tmppath);
+  }
 
   // Status
   sprintf(result->data,
@@ -447,6 +454,10 @@ struct buf * http_parser_sprint_request(struct http_parser_message *request) {
 
   if (isChunked) {
     buf_append(result, "0\r\n\r\n", 5);
+  }
+
+  if (isPathAllocced) {
+    free(path);
   }
 
   return result;
