@@ -409,7 +409,7 @@ struct buf * http_parser_sprint_request(struct http_parser_message *request) {
     tmppath        = path;
     path           = NULL;
     isPathAllocced = true;
-    aprintf(&path, "/%s", tmppath);
+    asprintf(&path, "/%s", tmppath);
   }
 
   // Status
