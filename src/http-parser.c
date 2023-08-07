@@ -388,7 +388,9 @@ struct buf * http_parser_sprint_response(struct http_parser_message *response) {
   // Treat result as buffer from here
   result->len = strlen(result->data);
 
-  buf_append(result, response->body->data, response->body->len);
+  if (response->body) {
+    buf_append(result, response->body->data, response->body->len);
+  }
 
   return result;
 }
@@ -399,11 +401,15 @@ struct buf * http_parser_sprint_request(struct http_parser_message *request) {
   result->cap  = 65536;
   result->data = calloc(1, result->cap);
 
+  char *path = request->path;
+  if (!path) path = "/";
+  if (!strlen(path)) path = "/";
+
   // Status
   sprintf(result->data,
       "%s %s"
       , request->method
-      , request->path
+      , path
   );
 
   // Query
@@ -435,7 +441,9 @@ struct buf * http_parser_sprint_request(struct http_parser_message *request) {
   // Treat result as buffer from here
   result->len = strlen(result->data);
 
-  buf_append(result, request->body->data, request->body->len);
+  if (request->body) {
+    buf_append(result, request->body->data, request->body->len);
+  }
 
   if (isChunked) {
     buf_append(result, "0\r\n\r\n", 5);
