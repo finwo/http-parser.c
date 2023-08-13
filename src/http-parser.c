@@ -514,8 +514,8 @@ void http_parser_pair_request_data(struct http_parser_pair *pair, const struct b
  */
 void http_parser_pair_response_data(struct http_parser_pair *pair, const struct buf *data) {
   struct http_parser_event *ev;
-  http_parser_response_data(pair->request, data);
-  if (pair->request->ready && pair->onResponse) {
+  http_parser_response_data(pair->response, data);
+  if (pair->response->ready && pair->onResponse) {
     ev           = calloc(1,sizeof(struct http_parser_event));
     ev->request  = pair->request;
     ev->response = pair->response;
