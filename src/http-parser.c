@@ -47,6 +47,30 @@ int xtoi(char *str) {
   return sign * i;
 }
 
+
+// Origin: https://stackoverflow.com/a/25705264/2928176
+// Author: Chris Dodd (https://stackoverflow.com/users/16406/chris-dodd)
+char *strnstr(const char *haystack, const char *needle, size_t len) {
+  int i;
+  size_t needle_len;
+
+  if (0 == (needle_len = strnlen(needle, len))) {
+    return NULL;
+  }
+
+  for (i=0; i<=(int)(len-needle_len); i++) {
+    if (
+      (haystack[0] == needle[0]) &&
+      (0 == strncmp(haystack, needle, needle_len))
+    ) {
+      return (char *)haystack;
+    }
+    haystack++;
+  }
+
+  return NULL;
+}
+
 /**
  * Frees everything in a header that was malloc'd by http-parser
  */
@@ -224,7 +248,7 @@ static int http_parser_message_read_header(struct http_parser_message *message) 
   char *index;
 
   // Require more data if no line break found
-  index = strstr(message->body->data, "\r\n");
+  index = strnstr(message->body->data, "\r\n", message->body->len);
   if (!index) return 1;
   *(index) = '\0';
 
@@ -275,7 +299,7 @@ static int http_parser_message_read_chunked(struct http_parser_message *message)
   if (message->chunksize == -1) {
 
     // Check if we have a line
-    index = strstr(message->body->data, "\r\n");
+    index = strnstr(message->body->data, "\r\n", message->body->len);
     if (!index) {
       return 1;
     }
