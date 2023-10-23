@@ -6,7 +6,6 @@ extern "C" {
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
-#include <strings.h>
 
 #include "finwo/asprintf.h"
 #include "finwo/strnstr.h"
