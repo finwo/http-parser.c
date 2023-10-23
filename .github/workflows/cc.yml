@@ -35,7 +35,7 @@ jobs:
         shell: bash
         run: |
           make CC=${{ matrix.cc }} BIN=${{ matrix.bin }}
-          make check
+          make check CC=${{ matrix.cc }} BIN=${{ matrix.bin }}
 
       - name: Upload binaries to release
         uses: svenstaro/upload-release-action@v2
@@ -99,13 +99,14 @@ jobs:
 
           run: |
             make CC=${{ matrix.cc }} BIN=${{ matrix.bin }}
-            make check
+            make check CC=${{ matrix.cc }} BIN=${{ matrix.bin }}
 
       - if: ${{ matrix.arch == 'none' }}
         name: Build
         shell: bash
         run: |
           make CC=${{ matrix.cc }} BIN=${{ matrix.bin }}
+          make check CC=${{ matrix.cc }} BIN=${{ matrix.bin }}
 
       - name: Upload binaries to release
         uses: svenstaro/upload-release-action@v2

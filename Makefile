@@ -1,6 +1,7 @@
 SRC=$(wildcard src/*.c)
 SRC+=test.c
 BIN?=http-parser-test
+CC?=gcc
 
 override CFLAGS?=-Wall -s -O2
 
