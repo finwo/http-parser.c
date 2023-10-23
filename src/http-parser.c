@@ -18,6 +18,12 @@ extern "C" {
 #define NULL ((void*)0)
 #endif
 
+#if defined(_WIN32) || defined(_WIN64)
+#ifndef strcasecmp
+#define strcasecmp _stricmp
+#endif
+#endif
+
 /**
  * Convert hexidecimal string to int
  */
