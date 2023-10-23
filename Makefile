@@ -1,17 +1,18 @@
 SRC=$(wildcard src/*.c)
 SRC+=test.c
+BIN?=http-parser-test
 
 override CFLAGS?=-Wall -s -O2
 
 include lib/.dep/config.mk
 
-http-parser-test: $(SRC) src/http-parser-statusses.h src/http-parser.h
+$(BIN): $(SRC) src/http-parser-statusses.h src/http-parser.h
 	$(CC) -Isrc $(INCLUDES) $(CFLAGS) -o $@ $(SRC)
 
 .PHONY: check
-check: http-parser-test
+check: $(BIN)
 	./$<
 
 .PHONY: clean
 clean:
-	rm -f http-parser-test
+	rm -f $(BIN)
