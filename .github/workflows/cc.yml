@@ -31,9 +31,11 @@ jobs:
         run: dep install
         shell: bash
 
-      - name: Build
-        run: make CC=${{ matrix.cc }} BIN=${{ matrix.bin }}
+      - name: Build & check
         shell: bash
+        run: |
+          make CC=${{ matrix.cc }} BIN=${{ matrix.bin }}
+          make check
 
       - name: Upload binaries to release
         uses: svenstaro/upload-release-action@v2
@@ -84,7 +86,7 @@ jobs:
 
       - if: ${{ matrix.arch != 'none' }}
         uses: uraimo/run-on-arch-action@v2
-        name: Build
+        name: Build & check
         id: runcmd
         with:
           arch: ${{ matrix.arch }}
@@ -97,6 +99,7 @@ jobs:
 
           run: |
             make CC=${{ matrix.cc }} BIN=${{ matrix.bin }}
+            make check
 
       - if: ${{ matrix.arch == 'none' }}
         name: Build
