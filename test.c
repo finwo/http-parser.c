@@ -209,9 +209,6 @@ int main() {
   printf("# 200 OK response (chunked)\n");
   ASSERT("response->status = 200", response->status == 200);
   ASSERT("response->statusmessage = \"OK\"", strcmp(response->statusMessage, "OK") == 0);
-
-  printf("resonse->body: %s\n", response->body->data);
-
   ASSERT("response->body = \"Hello World\\r\\n\"", strcmp(response->body->data, "Hello World\r\n") == 0);
 
   http_parser_message_free(response);
