@@ -656,11 +656,8 @@ void http_parser_response_data(struct http_parser_message *response, const struc
   while(1) {
     switch(response->_state) {
       case HTTP_PARSER_STATE_PANIC:
-        printf("_state: panic\n");
         return;
       case HTTP_PARSER_STATE_INIT:
-        printf("_state: init\n");
-
         // Wait for more data if not line break found
         index = strstr(response->body->data, "\r\n");
         if (!index) return;
@@ -668,12 +665,9 @@ void http_parser_response_data(struct http_parser_message *response, const struc
 
         // Read version and status
         response->version       = calloc(1, 8);
-        response->statusMessage = calloc(1, 16);
+        response->statusMessage = calloc(1, 64);
         aStatus                 = calloc(1, 8);
-        x = sscanf(response->body->data, "HTTP/%7s %7s %15s", response->version, aStatus, response->statusMessage);
-        if (x != 3) {
-          printf("x: %d\n", x);
-          printf("bdy: %s\n", response->body->data);
+        if (sscanf(response->body->data, "HTTP/%7s %7s %63[^\r\n]", response->version, aStatus, response->statusMessage) != 3) {
           response->_state = HTTP_PARSER_STATE_PANIC;
           return;
         }
@@ -690,8 +684,6 @@ void http_parser_response_data(struct http_parser_message *response, const struc
         break;
 
       case HTTP_PARSER_STATE_HEADER:
-        printf("_state: header\n");
-
         if (!http_parser_message_read_header(response)) {
           if (
               http_parser_header_get(response, "content-length") ||
@@ -705,8 +697,6 @@ void http_parser_response_data(struct http_parser_message *response, const struc
         break;
 
       case HTTP_PARSER_STATE_BODY:
-        printf("_state: body\n");
-
         // Detect chunked encoding
         if (response->chunksize == -1) {
           aChunkSize = http_parser_header_get(response, "transfer-encoding");
@@ -736,8 +726,6 @@ void http_parser_response_data(struct http_parser_message *response, const struc
         break;
 
       case HTTP_PARSER_STATE_BODY_CHUNKED:
-        printf("_state: body (chunked)\n");
-
         res = http_parser_message_read_chunked(response);
 
         if (res == 0) {
@@ -753,8 +741,6 @@ void http_parser_response_data(struct http_parser_message *response, const struc
         break;
 
       case HTTP_PARSER_STATE_DONE:
-        printf("_state: done\n");
-
         // Temporary buffer > direct buffer
         if (response->buf) {
           if (response->body) {
