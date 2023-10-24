@@ -667,10 +667,10 @@ void http_parser_response_data(struct http_parser_message *response, const struc
         *(index) = '\0';
 
         // Read version and status
-        response->version       = calloc(1, 4);
-        response->statusMessage = calloc(1, 8192);
-        aStatus                 = calloc(1, 4);
-        x = sscanf(response->body->data, "HTTP/%3s %3s %8191c", response->version, aStatus, response->statusMessage);
+        response->version       = calloc(1, 8);
+        response->statusMessage = calloc(1, 16);
+        aStatus                 = calloc(1, 8);
+        x = sscanf(response->body->data, "HTTP/%7s %7s %15s", response->version, aStatus, response->statusMessage);
         if (x != 3) {
           printf("x: %d\n", x);
           printf("bdy: %s\n", response->body->data);
