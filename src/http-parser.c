@@ -647,6 +647,7 @@ void http_parser_response_data(struct http_parser_message *response, const struc
   const char *aContentLength;
   const char *aChunkSize;
   int res;
+  int x;
 
   // Add event data to buffer
   if (!response->body) response->body = calloc(1, sizeof(struct buf));
@@ -669,7 +670,10 @@ void http_parser_response_data(struct http_parser_message *response, const struc
         response->version       = calloc(1, 4);
         response->statusMessage = calloc(1, 8192);
         aStatus                 = calloc(1, 4);
-        if (sscanf(response->body->data, "HTTP/%3s %3s %8191c", response->version, aStatus, response->statusMessage) != 3) {
+        x = sscanf(response->body->data, "HTTP/%3s %3s %8191c", response->version, aStatus, response->statusMessage);
+        if (x != 3) {
+          printf("x: %d\n", x);
+          printf("bdy: %s\n", response->body->data);
           response->_state = HTTP_PARSER_STATE_PANIC;
           return;
         }
