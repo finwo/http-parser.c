@@ -647,7 +647,6 @@ void http_parser_response_data(struct http_parser_message *response, const struc
   const char *aContentLength;
   const char *aChunkSize;
   int res;
-  int x;
 
   // Add event data to buffer
   if (!response->body) response->body = calloc(1, sizeof(struct buf));
