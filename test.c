@@ -64,6 +64,14 @@ char *postMessage =
   "Hello World\r\n"
 ;
 
+char *postOrderedMessage = 
+  "POST /foobar HTTP/1.1\r\n"
+  "Content-Length: 13\r\n"
+  "Host: localhost\r\n"
+  "\r\n"
+  "Hello World\r\n"
+;
+
 char *postChunkedMessage =
   "POST /foobar?token=pizza HTTP/1.1\r\n"
   "Host: localhost\r\n"
@@ -154,7 +162,7 @@ int main() {
   ASSERT("request->path is /foobar", strcmp(request->path, "/foobar") == 0);
   ASSERT("request->body is \"Hello World\\r\\n\"", strcmp(request->body->data, "Hello World\r\n") == 0);
   msgbuf = http_parser_sprint_request(request);
-  ASSERT("request->toString matches", strcmp(postMessage, msgbuf->data) == 0);
+  ASSERT("request->toString matches", strcmp(postOrderedMessage, msgbuf->data) == 0);
 
   http_parser_message_free(request);
   request  = http_parser_request_init();

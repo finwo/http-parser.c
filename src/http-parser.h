@@ -12,13 +12,8 @@ extern "C" {
 #define HTTP_PARSER_STATE_DONE         4
 #define HTTP_PARSER_STATE_PANIC        666
 
+#include "finwo/mindex.h"
 #include "tidwall/buf.h"
-
-struct http_parser_header {
-  void *next;
-  char *key;
-  char *value;
-};
 
 struct http_parser_event {
   struct http_parser_message *request;
@@ -36,7 +31,7 @@ struct http_parser_message {
   char *path;
   char *query;
   char *version;
-  struct http_parser_header *headers;
+  struct mindex_t *meta;
   struct buf *body;
   struct buf *buf;
   int chunksize;
@@ -53,10 +48,14 @@ struct http_parser_pair {
   void (*onResponse)(struct http_parser_event*);
 };
 
+// Tag management
+const char * http_parser_tag_get(struct http_parser_message *subject, const char *key);
+void http_parser_tag_set(struct http_parser_message *subject, const char *key, const char *value);
+void http_parser_tag_del(struct http_parser_message *subject, const char *key);
+
 // Header management
 const char * http_parser_header_get(struct http_parser_message *subject, const char *key);
 void http_parser_header_set(struct http_parser_message *subject ,const char *key, const char *value);
-void http_parser_header_add(struct http_parser_message *subject ,const char *key, const char *value);
 void http_parser_header_del(struct http_parser_message *subject, const char *key);
 
 struct http_parser_pair    * http_parser_pair_init(void *udata);

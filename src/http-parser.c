@@ -1,3 +1,5 @@
+// vim:fdm=marker:fdl=0
+
 #ifdef __cplusplus
 extern "C" {
 #endif
@@ -24,6 +26,7 @@ extern "C" {
 #endif
 #endif
 
+// xtoi {{{
 /**
  * Convert hexidecimal string to int
  */
@@ -54,29 +57,68 @@ int xtoi(char *str) {
 
   return sign * i;
 }
+// }}}
 
-/**
- * Frees everything in a header that was malloc'd by http-parser
- */
-void http_parser_header_free(struct http_parser_header *header) {
-  if (header->next) http_parser_header_free(header->next);
-  if (header->key) free(header->key);
-  if (header->value) free(header->value);
-  free(header);
+// non-exported structs {{{
+struct http_parser_tag {
+  char *key;
+  char *value;
+};
+// }}}
+
+// Tag management {{{
+
+static int fn_tag_cmp(const void *a, const void *b, void *udata) {
+  const struct http_parser_tag *ta = (struct http_parser_tag *)a;
+  const struct http_parser_tag *tb = (struct http_parser_tag *)b;
+  return strcasecmp(ta->key, tb->key);
 }
 
-/**
- * Internal, returns the pointer to a header entry that matches the key
- */
-struct http_parser_header * _http_parser_header_get(struct http_parser_message *subject, const char *key) {
-  struct http_parser_header *header = subject->headers;
-  while(header) {
-    if (!strcasecmp(header->key, key)) {
-      return header;
-    }
-    header = header->next;
-  }
-  return NULL;
+static void fn_tag_purge(void *item, void *udata) {
+  struct http_parser_tag *subject = (struct http_parser_tag *)item;
+  free(subject->key);
+  free(subject->value);
+  free(subject);
+}
+
+struct http_parser_tag * _http_parser_tag_get(struct http_parser_message *subject, const char *key) {
+  struct http_parser_tag pattern = { .key = (char*)key };
+  return mindex_get(subject->meta, &pattern);
+}
+const char * http_parser_tag_get(struct http_parser_message *subject, const char *key) {
+  struct http_parser_tag *found = _http_parser_tag_get(subject, key);
+  if (!found) return NULL;
+  return found->value;
+}
+
+void _http_parser_tag_set(struct http_parser_message *subject, const char *key, const char *value) {
+  struct http_parser_tag *tag = calloc(1, sizeof(struct http_parser_tag));
+  tag->key   = strdup(key);
+  tag->value = strdup(value);
+  mindex_set(subject->meta, tag);
+}
+void http_parser_tag_set(struct http_parser_message *subject, const char *key, const char *value) {
+  _http_parser_tag_set(subject, key, value);
+}
+
+void _http_parser_tag_del(struct http_parser_message *subject, const char *key) {
+  struct http_parser_tag pattern = { .key = (char*)key };
+  mindex_delete(subject->meta, &pattern);
+}
+void http_parser_tag_del(struct http_parser_message *subject, const char *key) {
+  _http_parser_tag_del(subject, key);
+}
+// }}}
+
+// Header management {{{
+
+struct http_parser_tag * _http_parser_header_get(struct http_parser_message *subject, const char *key) {
+  char *tag = calloc(strlen(key) + 8, sizeof(char));
+  strcat(tag, "header:");
+  strcat(tag, key);
+  struct http_parser_tag *result = _http_parser_tag_get(subject, tag);
+  free(tag);
+  return result;
 }
 
 /**
@@ -84,63 +126,39 @@ struct http_parser_header * _http_parser_header_get(struct http_parser_message *
  * Returns the header's value or NULL if not found
  */
 const char *http_parser_header_get(struct http_parser_message *subject, const char *key) {
-  struct http_parser_header *header = _http_parser_header_get(subject, key);
+  struct http_parser_tag *header = _http_parser_header_get(subject, key);
   if (!header) return NULL;
-  char *value = header->value;
-  while(*value == ' ') value++;
-  return value;
+  return header->value;
+}
+
+void _http_parser_header_set(struct http_parser_message *subject, const char *key, const char *value) {
+  char *tag = calloc(strlen(key) + 8, sizeof(char));
+  strcat(tag, "header:");
+  strcat(tag, key);
+  _http_parser_tag_set(subject, tag, value);
+  free(tag);
 }
 
 /**
  * Write a header into the subject's list of headers
  */
 void http_parser_header_set(struct http_parser_message *subject, const char *key, const char *value) {
-  struct http_parser_header *header = _http_parser_header_get(subject, key);
-  if (header) {
-    free(header->value);
-    header->value = strdup(value);
-  } else {
-    http_parser_header_add(subject, key, value);
-  }
+  return _http_parser_header_set(subject, key, value);
 }
 
-/**
- * Add a header into the subject's list of headers
- */
-void http_parser_header_add(struct http_parser_message *subject, const char *key, const char *value) {
-  struct http_parser_header *header = malloc(sizeof(struct http_parser_header));
-  header->key      = strdup(key);
-  header->value    = strdup(value);
-  header->next     = subject->headers;
-  subject->headers = header;
+void _http_parser_header_del(struct http_parser_message *subject, const char *key) {
+  char *tag = calloc(strlen(key) + 8, sizeof(char));
+  strcat(tag, "header:");
+  strcat(tag, key);
+  _http_parser_tag_del(subject, tag);
+  free(tag);
 }
 
-/**
- * Write a header into the subject's list of headers
- */
 void http_parser_header_del(struct http_parser_message *subject, const char *key) {
-  struct http_parser_header *header_prev = NULL;
-  struct http_parser_header *header_cur  = subject->headers;
-  while(header_cur) {
-    if (strcasecmp(header_cur->key, key) == 0) {
-      if (header_prev) {
-        header_prev->next = header_cur->next;
-      } else {
-        subject->headers = header_cur->next;
-      }
-      header_cur->next = NULL;
-      http_parser_header_free(header_cur);
-      if (header_prev) {
-        header_cur = header_prev->next;
-      } else {
-        header_cur = subject->headers;
-      }
-      continue;
-    }
-    header_prev = header_cur;
-    header_cur  = header_cur->next;
-  }
+  _http_parser_header_del(subject, key);
 }
+
+// }}}
 
 /**
  * Frees everything in a http_message that was malloc'd by http-parser
@@ -150,7 +168,7 @@ void http_parser_message_free(struct http_parser_message *subject) {
   if (subject->path   ) free(subject->path);
   if (subject->version) free(subject->version);
   if (subject->body   ) { buf_clear(subject->body); free(subject->body); }
-  if (subject->headers) http_parser_header_free(subject->headers);
+  if (subject->meta   ) mindex_free(subject->meta);
   if (subject->buf    ) free(subject->buf);
   free(subject);
 }
@@ -170,6 +188,11 @@ void http_parser_pair_free(struct http_parser_pair *pair) {
 struct http_parser_message * http_parser_request_init() {
   struct http_parser_message *message = calloc(1, sizeof(struct http_parser_message));
   message->chunksize = -1;
+  message->meta      = mindex_init(
+      fn_tag_cmp,
+      fn_tag_purge,
+      NULL
+  );
   return message;
 }
 
@@ -228,7 +251,6 @@ static void http_parser_message_remove_body_string(struct http_parser_message *m
  * Caution: does not support multi-line headers yet
  */
 static int http_parser_message_read_header(struct http_parser_message *message) {
-  struct http_parser_header *header;
   char *index;
 
   // Require more data if no line break found
@@ -242,29 +264,22 @@ static int http_parser_message_read_header(struct http_parser_message *message) 
     return 0;
   }
 
-  // Prepare new header
-  header        = calloc(1,sizeof(struct http_parser_message));
-  header->key   = calloc(1,strlen(message->body->data)); // Using strlen, due to possible \r\n replacement
-  header->value = calloc(1,strlen(message->body->data)); // Using strlen, due to possible \r\n replacement
-
   // Detect colon
   index = strstr(message->body->data, ": ");
   if (!index) {
-    http_parser_header_free(header);
     http_parser_message_remove_body_string(message);
     return 1;
   }
 
-  // Copy key & value
+  // Split by the found colon & skip leading whitespace
   *(index) = '\0';
-  strcpy(header->key, message->body->data);
-  strcpy(header->value, index + 2);
+  index++;
+  while(*(index) == ' ') index++;
 
-  // Assign to the header list
-  header->next     = message->headers;
-  message->headers = header;
+  // Insert the header in our map
+  _http_parser_header_set(message, message->body->data, index);
 
-  // Remove the header line
+  // Remove the header remainder
   // Twice, because we split the string
   http_parser_message_remove_body_string(message);
   http_parser_message_remove_body_string(message);
@@ -365,14 +380,6 @@ struct buf * http_parser_sprint_pair_request(struct http_parser_pair *pair) {
   return http_parser_sprint_request(pair->request);
 }
 
-void _http_parser_sprint_headers(char *target, struct http_parser_header *header) {
-  if (header->next) _http_parser_sprint_headers(target, header->next);
-  strcat(target, header->key);
-  strcat(target, ": ");
-  strcat(target, header->value);
-  strcat(target, "\r\n");
-}
-
 // Caution: headers should fit in 64k
 struct buf * http_parser_sprint_response(struct http_parser_message *response) {
   struct buf *result = calloc(1, sizeof(struct buf));
@@ -387,8 +394,18 @@ struct buf * http_parser_sprint_response(struct http_parser_message *response) {
       , response->statusMessage ? response->statusMessage : http_parser_status_message(response->status)
   );
 
-  if (response->headers) {
-    _http_parser_sprint_headers(result->data, response->headers);
+  // Headers
+  int i;
+  struct http_parser_tag *tag;
+  if (response->meta) {
+    for(i=0; i<mindex_length(response->meta); i++) {
+      tag = mindex_nth(response->meta, i);
+      if (strncmp("header:", tag->key, 7)) continue;
+      strcat(result->data, (tag->key + 7));
+      strcat(result->data, ": ");
+      strcat(result->data, tag->value);
+      strcat(result->data, "\r\n");
+    }
   }
 
   strcat(result->data, "\r\n");
@@ -439,8 +456,17 @@ struct buf * http_parser_sprint_request(struct http_parser_message *request) {
   strcat(result->data, "\r\n");
 
   // Headers
-  if (request->headers) {
-    _http_parser_sprint_headers(result->data, request->headers);
+  int i;
+  struct http_parser_tag *tag;
+  if (request->meta) {
+    for(i=0; i<mindex_length(request->meta); i++) {
+      tag = mindex_nth(request->meta, i);
+      if (strncmp("header:", tag->key, 7)) continue;
+      strcat(result->data, (tag->key + 7));
+      strcat(result->data, ": ");
+      strcat(result->data, tag->value);
+      strcat(result->data, "\r\n");
+    }
   }
 
   strcat(result->data, "\r\n");
