@@ -122,6 +122,7 @@ int main() {
   ASSERT("request->method is null", request->method == NULL);
   ASSERT("request->body is null", request->body == NULL);
   ASSERT("request->chunksize is -1", request->chunksize == -1);
+  ASSERT("request->header->host is NULL", http_parser_header_get(request, "host") == NULL);
 
   http_parser_message_free(request);
   request  = http_parser_request_init();
@@ -137,6 +138,7 @@ int main() {
   ASSERT("request->path is /foobar", strcmp(request->path, "/foobar") == 0);
   msgbuf = http_parser_sprint_request(request);
   ASSERT("request->toString matches", strcmp(getMessage, msgbuf->data) == 0);
+  ASSERT("request->header->host is localhost", strcmp(http_parser_header_get(request, "host"), "localhost") == 0);
 
   http_parser_message_free(request);
   request  = http_parser_request_init();
