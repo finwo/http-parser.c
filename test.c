@@ -115,6 +115,14 @@ char *responseNotFoundMessage =
   "Not Found\r\n"
 ;
 
+char *responseNotFoundExtendedMessage =
+  "HTTP/1.0 404 Not Found\r\n"
+  "Content-Length: 11\r\n"
+  "Content-Type: text/plain\r\n"
+  "\r\n"
+  "Not Found\r\n"
+;
+
 
 /* // Passing network data into it */
 /* http_parser_request_data(request, message, strlen(message)); */
@@ -234,6 +242,10 @@ int main() {
   ASSERT("response->statusmessage = \"Not Found\"", strcmp(response->statusMessage, "Not Found") == 0);
   ASSERT("response->body = \"Not Found\\r\\n\"", strcmp(response->body->data, "Not Found\r\n") == 0);
   ASSERT("response->toString matches", strcmp(responseNotFoundMessage, http_parser_sprint_response(response)->data) == 0);
+
+  http_parser_header_set(response, "Content-Type", "text/plain");
+
+  ASSERT("response->toString matches after header modification", strcmp(responseNotFoundExtendedMessage, http_parser_sprint_response(response)->data) == 0);
 
   return err;
 }
