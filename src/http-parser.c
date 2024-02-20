@@ -4,7 +4,6 @@
 extern "C" {
 #endif
 
-#include <stdarg.h>
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
@@ -15,6 +14,13 @@ extern "C" {
 
 #include "http-parser.h"
 #include "http-parser-statusses.h"
+
+const int _HTTP_PARSER_STATE_INIT         = 0;
+const int _HTTP_PARSER_STATE_HEADER       = 1;
+const int _HTTP_PARSER_STATE_BODY         = 2;
+const int _HTTP_PARSER_STATE_BODY_CHUNKED = 3;
+const int _HTTP_PARSER_STATE_DONE         = 4;
+const int _HTTP_PARSER_STATE_PANIC        = 666;
 
 #ifndef NULL
 #define NULL ((void*)0)
@@ -553,9 +559,9 @@ void http_parser_request_data(struct http_parser_message *request, const struct 
 
   while(1) {
     switch(request->_state) {
-      case HTTP_PARSER_STATE_PANIC:
+      case _HTTP_PARSER_STATE_PANIC:
         return;
-      case HTTP_PARSER_STATE_INIT:
+      case _HTTP_PARSER_STATE_INIT:
 
         // Wait for more data if not line break found
         index = strstr(request->body->data, "\r\n");
@@ -567,7 +573,7 @@ void http_parser_request_data(struct http_parser_message *request, const struct 
         request->path    = calloc(1, 8192);
         request->version = calloc(1, 4);
         if (sscanf(request->body->data, "%15s %8191s HTTP/%3s", request->method, request->path, request->version) != 3) {
-          request->_state = HTTP_PARSER_STATE_PANIC;
+          request->_state = _HTTP_PARSER_STATE_PANIC;
           return;
         }
 
@@ -583,30 +589,30 @@ void http_parser_request_data(struct http_parser_message *request, const struct 
         }
 
         // Signal we're now reading headers
-        request->_state = HTTP_PARSER_STATE_HEADER;
+        request->_state = _HTTP_PARSER_STATE_HEADER;
         break;
 
-      case HTTP_PARSER_STATE_HEADER:
+      case _HTTP_PARSER_STATE_HEADER:
         if (!http_parser_message_read_header(request)) {
           if (
               http_parser_header_get(request, "content-length") ||
               http_parser_header_get(request, "transfer-encoding")
           ) {
-            request->_state = HTTP_PARSER_STATE_BODY;
+            request->_state = _HTTP_PARSER_STATE_BODY;
           } else {
-            request->_state = HTTP_PARSER_STATE_DONE;
+            request->_state = _HTTP_PARSER_STATE_DONE;
           }
         }
         break;
 
-      case HTTP_PARSER_STATE_BODY:
+      case _HTTP_PARSER_STATE_BODY:
 
         // Detect chunked encoding
         if (request->chunksize == -1) {
           aChunkSize = http_parser_header_get(request, "transfer-encoding");
           if (aChunkSize) {
             if (!strcasecmp(aChunkSize, "chunked")) {
-              request->_state = HTTP_PARSER_STATE_BODY_CHUNKED;
+              request->_state = _HTTP_PARSER_STATE_BODY_CHUNKED;
               break;
             }
           }
@@ -615,7 +621,7 @@ void http_parser_request_data(struct http_parser_message *request, const struct 
         // Fetch the content length
         aContentLength = http_parser_header_get(request, "content-length");
         if (!aContentLength) {
-          request->_state = HTTP_PARSER_STATE_DONE;
+          request->_state = _HTTP_PARSER_STATE_DONE;
           break;
         }
         iContentLength = atoi(aContentLength);
@@ -626,15 +632,15 @@ void http_parser_request_data(struct http_parser_message *request, const struct 
         }
 
         // Change size to indicated size
-        request->_state = HTTP_PARSER_STATE_DONE;
+        request->_state = _HTTP_PARSER_STATE_DONE;
         break;
 
-      case HTTP_PARSER_STATE_BODY_CHUNKED:
+      case _HTTP_PARSER_STATE_BODY_CHUNKED:
         res = http_parser_message_read_chunked(request);
 
         if (res == 0) {
           // Done
-          request->_state = HTTP_PARSER_STATE_DONE;
+          request->_state = _HTTP_PARSER_STATE_DONE;
         } else if (res == 1) {
           // More data needed
           return;
@@ -644,7 +650,7 @@ void http_parser_request_data(struct http_parser_message *request, const struct 
 
         break;
 
-      case HTTP_PARSER_STATE_DONE:
+      case _HTTP_PARSER_STATE_DONE:
 
         // Temporary buffer > direct buffer
         if (request->buf) {
@@ -680,9 +686,9 @@ void http_parser_response_data(struct http_parser_message *response, const struc
 
   while(1) {
     switch(response->_state) {
-      case HTTP_PARSER_STATE_PANIC:
+      case _HTTP_PARSER_STATE_PANIC:
         return;
-      case HTTP_PARSER_STATE_INIT:
+      case _HTTP_PARSER_STATE_INIT:
         // Wait for more data if not line break found
         index = strstr(response->body->data, "\r\n");
         if (!index) return;
@@ -693,7 +699,7 @@ void http_parser_response_data(struct http_parser_message *response, const struc
         response->statusMessage = calloc(1, 64);
         aStatus                 = calloc(1, 8);
         if (sscanf(response->body->data, "HTTP/%7s %7s %63[^\r\n]", response->version, aStatus, response->statusMessage) != 3) {
-          response->_state = HTTP_PARSER_STATE_PANIC;
+          response->_state = _HTTP_PARSER_STATE_PANIC;
           return;
         }
 
@@ -705,29 +711,29 @@ void http_parser_response_data(struct http_parser_message *response, const struc
         http_parser_message_remove_body_string(response);
 
         // Signal we're now reading headers
-        response->_state = HTTP_PARSER_STATE_HEADER;
+        response->_state = _HTTP_PARSER_STATE_HEADER;
         break;
 
-      case HTTP_PARSER_STATE_HEADER:
+      case _HTTP_PARSER_STATE_HEADER:
         if (!http_parser_message_read_header(response)) {
           if (
               http_parser_header_get(response, "content-length") ||
               http_parser_header_get(response, "transfer-encoding")
           ) {
-            response->_state = HTTP_PARSER_STATE_BODY;
+            response->_state = _HTTP_PARSER_STATE_BODY;
           } else {
-            response->_state = HTTP_PARSER_STATE_DONE;
+            response->_state = _HTTP_PARSER_STATE_DONE;
           }
         }
         break;
 
-      case HTTP_PARSER_STATE_BODY:
+      case _HTTP_PARSER_STATE_BODY:
         // Detect chunked encoding
         if (response->chunksize == -1) {
           aChunkSize = http_parser_header_get(response, "transfer-encoding");
           if (aChunkSize) {
             if (!strcasecmp(aChunkSize, "chunked")) {
-              response->_state = HTTP_PARSER_STATE_BODY_CHUNKED;
+              response->_state = _HTTP_PARSER_STATE_BODY_CHUNKED;
               break;
             }
           }
@@ -736,7 +742,7 @@ void http_parser_response_data(struct http_parser_message *response, const struc
         // Fetch the content length
         aContentLength = http_parser_header_get(response, "content-length");
         if (!aContentLength) {
-          response->_state = HTTP_PARSER_STATE_DONE;
+          response->_state = _HTTP_PARSER_STATE_DONE;
           break;
         }
         iContentLength = atoi(aContentLength);
@@ -747,15 +753,15 @@ void http_parser_response_data(struct http_parser_message *response, const struc
         }
 
         // Change size to indicated size
-        response->_state = HTTP_PARSER_STATE_DONE;
+        response->_state = _HTTP_PARSER_STATE_DONE;
         break;
 
-      case HTTP_PARSER_STATE_BODY_CHUNKED:
+      case _HTTP_PARSER_STATE_BODY_CHUNKED:
         res = http_parser_message_read_chunked(response);
 
         if (res == 0) {
           // Done
-          response->_state = HTTP_PARSER_STATE_DONE;
+          response->_state = _HTTP_PARSER_STATE_DONE;
         } else if (res == 1) {
           // More data needed
           return;
@@ -765,7 +771,7 @@ void http_parser_response_data(struct http_parser_message *response, const struc
 
         break;
 
-      case HTTP_PARSER_STATE_DONE:
+      case _HTTP_PARSER_STATE_DONE:
         // Temporary buffer > direct buffer
         if (response->buf) {
           if (response->body) {

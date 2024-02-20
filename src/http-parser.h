@@ -5,13 +5,6 @@
 extern "C" {
 #endif
 
-#define HTTP_PARSER_STATE_INIT         0
-#define HTTP_PARSER_STATE_HEADER       1
-#define HTTP_PARSER_STATE_BODY         2
-#define HTTP_PARSER_STATE_BODY_CHUNKED 3
-#define HTTP_PARSER_STATE_DONE         4
-#define HTTP_PARSER_STATE_PANIC        666
-
 #include "finwo/mindex.h"
 #include "tidwall/buf.h"
 
