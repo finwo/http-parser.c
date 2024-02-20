@@ -60,64 +60,64 @@ int xtoi(char *str) {
 // }}}
 
 // non-exported structs {{{
-struct http_parser_tag {
+struct http_parser_meta {
   char *key;
   char *value;
 };
 // }}}
 
-// Tag management {{{
+// Meta management {{{
 
-static int fn_tag_cmp(const void *a, const void *b, void *udata) {
-  const struct http_parser_tag *ta = (struct http_parser_tag *)a;
-  const struct http_parser_tag *tb = (struct http_parser_tag *)b;
+static int fn_meta_cmp(const void *a, const void *b, void *udata) {
+  const struct http_parser_meta *ta = (struct http_parser_meta *)a;
+  const struct http_parser_meta *tb = (struct http_parser_meta *)b;
   return strcasecmp(ta->key, tb->key);
 }
 
-static void fn_tag_purge(void *item, void *udata) {
-  struct http_parser_tag *subject = (struct http_parser_tag *)item;
+static void fn_meta_purge(void *item, void *udata) {
+  struct http_parser_meta *subject = (struct http_parser_meta *)item;
   free(subject->key);
   free(subject->value);
   free(subject);
 }
 
-struct http_parser_tag * _http_parser_tag_get(struct http_parser_message *subject, const char *key) {
-  struct http_parser_tag pattern = { .key = (char*)key };
+struct http_parser_meta * _http_parser_meta_get(struct http_parser_message *subject, const char *key) {
+  struct http_parser_meta pattern = { .key = (char*)key };
   return mindex_get(subject->meta, &pattern);
 }
-const char * http_parser_tag_get(struct http_parser_message *subject, const char *key) {
-  struct http_parser_tag *found = _http_parser_tag_get(subject, key);
+const char * http_parser_meta_get(struct http_parser_message *subject, const char *key) {
+  struct http_parser_meta *found = _http_parser_meta_get(subject, key);
   if (!found) return NULL;
   return found->value;
 }
 
-void _http_parser_tag_set(struct http_parser_message *subject, const char *key, const char *value) {
-  struct http_parser_tag *tag = calloc(1, sizeof(struct http_parser_tag));
-  tag->key   = strdup(key);
-  tag->value = strdup(value);
-  mindex_set(subject->meta, tag);
+void _http_parser_meta_set(struct http_parser_message *subject, const char *key, const char *value) {
+  struct http_parser_meta *meta = calloc(1, sizeof(struct http_parser_meta));
+  meta->key   = strdup(key);
+  meta->value = strdup(value);
+  mindex_set(subject->meta, meta);
 }
-void http_parser_tag_set(struct http_parser_message *subject, const char *key, const char *value) {
-  _http_parser_tag_set(subject, key, value);
+void http_parser_meta_set(struct http_parser_message *subject, const char *key, const char *value) {
+  _http_parser_meta_set(subject, key, value);
 }
 
-void _http_parser_tag_del(struct http_parser_message *subject, const char *key) {
-  struct http_parser_tag pattern = { .key = (char*)key };
+void _http_parser_meta_del(struct http_parser_message *subject, const char *key) {
+  struct http_parser_meta pattern = { .key = (char*)key };
   mindex_delete(subject->meta, &pattern);
 }
-void http_parser_tag_del(struct http_parser_message *subject, const char *key) {
-  _http_parser_tag_del(subject, key);
+void http_parser_meta_del(struct http_parser_message *subject, const char *key) {
+  _http_parser_meta_del(subject, key);
 }
 // }}}
 
 // Header management {{{
 
-struct http_parser_tag * _http_parser_header_get(struct http_parser_message *subject, const char *key) {
-  char *tag = calloc(strlen(key) + 8, sizeof(char));
-  strcat(tag, "header:");
-  strcat(tag, key);
-  struct http_parser_tag *result = _http_parser_tag_get(subject, tag);
-  free(tag);
+struct http_parser_meta * _http_parser_header_get(struct http_parser_message *subject, const char *key) {
+  char *meta = calloc(strlen(key) + 8, sizeof(char));
+  strcat(meta, "header:");
+  strcat(meta, key);
+  struct http_parser_meta *result = _http_parser_meta_get(subject, meta);
+  free(meta);
   return result;
 }
 
@@ -126,17 +126,17 @@ struct http_parser_tag * _http_parser_header_get(struct http_parser_message *sub
  * Returns the header's value or NULL if not found
  */
 const char *http_parser_header_get(struct http_parser_message *subject, const char *key) {
-  struct http_parser_tag *header = _http_parser_header_get(subject, key);
+  struct http_parser_meta *header = _http_parser_header_get(subject, key);
   if (!header) return NULL;
   return header->value;
 }
 
 void _http_parser_header_set(struct http_parser_message *subject, const char *key, const char *value) {
-  char *tag = calloc(strlen(key) + 8, sizeof(char));
-  strcat(tag, "header:");
-  strcat(tag, key);
-  _http_parser_tag_set(subject, tag, value);
-  free(tag);
+  char *meta = calloc(strlen(key) + 8, sizeof(char));
+  strcat(meta, "header:");
+  strcat(meta, key);
+  _http_parser_meta_set(subject, meta, value);
+  free(meta);
 }
 
 /**
@@ -147,11 +147,11 @@ void http_parser_header_set(struct http_parser_message *subject, const char *key
 }
 
 void _http_parser_header_del(struct http_parser_message *subject, const char *key) {
-  char *tag = calloc(strlen(key) + 8, sizeof(char));
-  strcat(tag, "header:");
-  strcat(tag, key);
-  _http_parser_tag_del(subject, tag);
-  free(tag);
+  char *meta = calloc(strlen(key) + 8, sizeof(char));
+  strcat(meta, "header:");
+  strcat(meta, key);
+  _http_parser_meta_del(subject, meta);
+  free(meta);
 }
 
 void http_parser_header_del(struct http_parser_message *subject, const char *key) {
@@ -189,8 +189,8 @@ struct http_parser_message * http_parser_request_init() {
   struct http_parser_message *message = calloc(1, sizeof(struct http_parser_message));
   message->chunksize = -1;
   message->meta      = mindex_init(
-      fn_tag_cmp,
-      fn_tag_purge,
+      fn_meta_cmp,
+      fn_meta_purge,
       NULL
   );
   return message;
@@ -396,14 +396,14 @@ struct buf * http_parser_sprint_response(struct http_parser_message *response) {
 
   // Headers
   int i;
-  struct http_parser_tag *tag;
+  struct http_parser_meta *meta;
   if (response->meta) {
     for(i=0; i<mindex_length(response->meta); i++) {
-      tag = mindex_nth(response->meta, i);
-      if (strncmp("header:", tag->key, 7)) continue;
-      strcat(result->data, (tag->key + 7));
+      meta = mindex_nth(response->meta, i);
+      if (strncmp("header:", meta->key, 7)) continue;
+      strcat(result->data, (meta->key + 7));
       strcat(result->data, ": ");
-      strcat(result->data, tag->value);
+      strcat(result->data, meta->value);
       strcat(result->data, "\r\n");
     }
   }
@@ -457,14 +457,14 @@ struct buf * http_parser_sprint_request(struct http_parser_message *request) {
 
   // Headers
   int i;
-  struct http_parser_tag *tag;
+  struct http_parser_meta *meta;
   if (request->meta) {
     for(i=0; i<mindex_length(request->meta); i++) {
-      tag = mindex_nth(request->meta, i);
-      if (strncmp("header:", tag->key, 7)) continue;
-      strcat(result->data, (tag->key + 7));
+      meta = mindex_nth(request->meta, i);
+      if (strncmp("header:", meta->key, 7)) continue;
+      strcat(result->data, (meta->key + 7));
       strcat(result->data, ": ");
-      strcat(result->data, tag->value);
+      strcat(result->data, meta->value);
       strcat(result->data, "\r\n");
     }
   }

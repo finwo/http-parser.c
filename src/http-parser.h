@@ -48,10 +48,10 @@ struct http_parser_pair {
   void (*onResponse)(struct http_parser_event*);
 };
 
-// Tag management
-const char * http_parser_tag_get(struct http_parser_message *subject, const char *key);
-void http_parser_tag_set(struct http_parser_message *subject, const char *key, const char *value);
-void http_parser_tag_del(struct http_parser_message *subject, const char *key);
+// Meta management
+const char * http_parser_meta_get(struct http_parser_message *subject, const char *key);
+void http_parser_meta_set(struct http_parser_message *subject, const char *key, const char *value);
+void http_parser_meta_del(struct http_parser_message *subject, const char *key);
 
 // Header management
 const char * http_parser_header_get(struct http_parser_message *subject, const char *key);
