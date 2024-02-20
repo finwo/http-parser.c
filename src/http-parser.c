@@ -526,7 +526,7 @@ void http_parser_pair_request_data(struct http_parser_pair *pair, const struct b
 /**
  * Pass data into the pair's request
  *
- * Triggers onRequest if set
+ * Triggers onResponse if set
  */
 void http_parser_pair_response_data(struct http_parser_pair *pair, const struct buf *data) {
   struct http_parser_event *ev;
